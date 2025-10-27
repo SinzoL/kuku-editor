@@ -1,0 +1,90 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #1a1a1a;
+  color: white;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+}
+
+/* 按钮样式 */
+.btn {
+  background: #404040;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 14px;
+}
+
+.btn:hover {
+  background: #505050;
+}
+
+.btn.primary {
+  background: #64ffda;
+  color: #1a1a1a;
+}
+
+.btn.primary:hover {
+  background: #4fd3b8;
+}
+
+.btn:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+}
+
+/* 输入框样式 */
+.input {
+  background: #333;
+  border: 1px solid #555;
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #64ffda;
+}
+
+/* 滑块样式 */
+.slider {
+  width: 100%;
+  margin: 8px 0;
+}
+
+/* 加载动画 */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #333;
+  border-top: 4px solid #64ffda;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none;
+}
