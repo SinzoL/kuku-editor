@@ -63,7 +63,6 @@ const wasmStore = useWasmStore()
 
 // 响应式数据
 const isLoading = ref(true)
-const selectedObject = ref<any>(null)
 const fps = ref(60)
 const objectCount = ref(0)
 const transformMode = ref('translate')
@@ -82,7 +81,8 @@ const {
   updateObjectTransform,
   optimizeMesh,
   getStats,
-  setTransformMode: engineSetTransformMode
+  setTransformMode: engineSetTransformMode,
+  selectedObject
 } = useThreeEngine()
 
 // 计算属性

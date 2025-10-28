@@ -224,6 +224,21 @@ export function useThreeEngine() {
     scene.value.add(mesh)
     objects.value.push(mesh)
     
+    // 自动选中新创建的物体并附加 TransformControls
+    if (selectedObject.value) {
+      // 清除之前选中物体的高亮
+      (selectedObject.value.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000)
+    }
+    
+    selectedObject.value = mesh
+    // 高亮新选中的物体
+    ;(mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x444444)
+    
+    // 附加 TransformControls 到新创建的物体
+    if (transformControls.value) {
+      transformControls.value.attach(mesh)
+    }
+    
     // 更新统计
     stats.value.objectCount = objects.value.length
     
