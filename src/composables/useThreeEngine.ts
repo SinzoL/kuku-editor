@@ -157,7 +157,7 @@ export function useThreeEngine() {
   const addGrid = () => {
     if (!scene.value) return
     
-    const gridHelper = markRaw(new THREE.GridHelper(40, 40, 0x888888, 0x444444))
+    const gridHelper = markRaw(new THREE.GridHelper(40, 40, 0xffffff, 0x888888))
     // 设置网格材质的抗锯齿属性 - GridHelper 返回单个材质
     const material = gridHelper.material as THREE.LineBasicMaterial
     material.transparent = true
@@ -431,6 +431,11 @@ export function useThreeEngine() {
     
     // 更新统计
     stats.value.objectCount = 0
+
+
+    if (transformControls.value) {
+      transformControls.value.detach()
+    }
     
     console.log('🔄 场景已重置')
   }
