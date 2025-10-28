@@ -64,15 +64,39 @@
         >
       </div>
       <div class="property-group">
-        <label class="property-label">缩放: {{ scaleValue }}</label>
+        <label class="property-label">缩放 X: {{ selectedObject.scale.x.toFixed(2) }}</label>
         <input 
-          :value="scaleValue" 
+          :value="selectedObject.scale.x" 
           type="range" 
           class="slider" 
           min="0.1" 
           max="3" 
           step="0.1"
-          @input="updateScale($event)"
+          @input="updateAxisScale('x', $event)"
+        >
+      </div>
+      <div class="property-group">
+        <label class="property-label">缩放 Y: {{ selectedObject.scale.y.toFixed(2) }}</label>
+        <input 
+          :value="selectedObject.scale.y" 
+          type="range" 
+          class="slider" 
+          min="0.1" 
+          max="3" 
+          step="0.1"
+          @input="updateAxisScale('y', $event)"
+        >
+      </div>
+      <div class="property-group">
+        <label class="property-label">缩放 Z: {{ selectedObject.scale.z.toFixed(2) }}</label>
+        <input 
+          :value="selectedObject.scale.z" 
+          type="range" 
+          class="slider" 
+          min="0.1" 
+          max="3" 
+          step="0.1"
+          @input="updateAxisScale('z', $event)"
         >
       </div>
     </div>
@@ -89,7 +113,6 @@ import { TranslateIcon, RotateIcon, ScaleIcon } from '@/assets/icons'
 interface Props {
   selectedObject: any
   transformMode: string
-  scaleValue: number
 }
 
 defineProps<Props>()
@@ -98,7 +121,7 @@ defineProps<Props>()
 const emit = defineEmits<{
   'set-transform-mode': [mode: string]
   'update-position': [axis: string, value: number]
-  'update-scale': [value: number]
+  'update-axis-scale': [axis: string, value: number]
 }>()
 
 // 更新位置
@@ -107,10 +130,10 @@ const updatePosition = (axis: string, event: Event) => {
   emit('update-position', axis, parseFloat(target.value))
 }
 
-// 更新缩放
-const updateScale = (event: Event) => {
+// 更新单轴缩放
+const updateAxisScale = (axis: string, event: Event) => {
   const target = event.target as HTMLInputElement
-  emit('update-scale', parseFloat(target.value))
+  emit('update-axis-scale', axis, parseFloat(target.value))
 }
 </script>
 

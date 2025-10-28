@@ -16,10 +16,9 @@
         <ObjectProperties 
           :selected-object="selectedObject"
           :transform-mode="transformMode"
-          :scale-value="scaleValue"
           @set-transform-mode="setTransformMode"
           @update-position="updateObjectPosition"
-          @update-scale="updateObjectScale"
+          @update-axis-scale="updateObjectAxisScale"
         />
 
         <!-- WebAssembly 控制 -->
@@ -65,7 +64,6 @@ const wasmStore = useWasmStore()
 // 响应式数据
 const isLoading = ref(true)
 const selectedObject = ref<any>(null)
-const scaleValue = ref(1)
 const fps = ref(60)
 const objectCount = ref(0)
 const transformMode = ref('translate')
@@ -99,7 +97,6 @@ const addGeometry = (type: string) => {
   const object = engineAddGeometry(type)
   if (object) {
     selectedObject.value = object
-    scaleValue.value = 1
     updateStats()
   }
 }
@@ -120,9 +117,6 @@ const handleCanvasClick = (event: MouseEvent) => {
     
     const object = engineSelectObject(event)
     selectedObject.value = object
-    if (object) {
-      scaleValue.value = object.scale.x
-    }
   }, 100)
 }
 
@@ -149,9 +143,6 @@ const handleTransformUpdate = (event: CustomEvent) => {
       rotation: { x: rotation.x, y: rotation.y, z: rotation.z },
       scale: { x: scale.x, y: scale.y, z: scale.z }
     }
-    
-    // 更新 scaleValue
-    scaleValue.value = scale.x
   }
 }
 
@@ -164,13 +155,12 @@ const updateObjectPosition = (axis: string, value: number) => {
   }
 }
 
-const updateObjectScale = (value: number) => {
-  scaleValue.value = value
+
+
+const updateObjectAxisScale = (axis: string, value: number) => {
   if (selectedObject.value) {
-    selectedObject.value.scale.setScalar(value)
-    updateObjectTransform(selectedObject.value, {
-      scale: { x: value, y: value, z: value }
-    })
+    // 直接修改对象的缩放属性
+    selectedObject.value.scale[axis] = value
   }
 }
 
@@ -188,7 +178,6 @@ const optimizeWithWasm = async () => {
 const resetScene = () => {
   engineResetScene()
   selectedObject.value = null
-  scaleValue.value = 1
   updateStats()
 }
 
