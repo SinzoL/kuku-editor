@@ -269,6 +269,56 @@ export function useThreeEngine() {
     selectedObject.value = null
     return null
   }
+  document.addEventListener('keydown', function(event) {
+    // 处理对象的删除操作
+      if(event.key === 'Delete' || event.key === 'Backspace') {
+        // 是否选中了对象
+        if(selectedObject.value) {
+          deleteSelectedObject()
+          event.preventDefault()
+        }
+      }
+
+      if(event.key === 'Escape') {
+        deselectObject()
+      }
+  })
+
+  const deselectObject = () => {
+    if (!selectedObject.value) return
+    
+    // 清除之前的选择高亮
+    if (selectedObject.value) {
+      (selectedObject.value.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000)
+    }
+    
+    // 取消选择时，分离 TransformControls
+    if (transformControls.value) {
+      transformControls.value.detach()
+    }
+    
+    selectedObject.value = null
+  }
+
+  const deleteSelectedObject = () => {
+    if (!selectedObject.value) return
+    
+    scene.value!.remove(selectedObject.value)
+
+    objects.value = objects.value.filter(obj => obj !== selectedObject.value)
+
+    if(transformControls.value) {
+      transformControls.value.detach()
+    }
+
+    selectedObject.value.geometry.dispose()
+    if(selectedObject.value.material instanceof THREE.MeshStandardMaterial)
+      selectedObject.value.material.dispose()
+    
+    selectedObject.value= null
+
+    stats.value.objectCount = objects.value.length
+  }
 
   // 更新对象变换
   const updateObjectTransform = (object: THREE.Mesh, transform: any) => {
