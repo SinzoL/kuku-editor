@@ -8,3 +8,6 @@ export { default as TorusIcon } from './TorusIcon.vue'
 export { default as TranslateIcon } from './TranslateIcon.vue'
 export { default as RotateIcon } from './RotateIcon.vue'
 export { default as ScaleIcon } from './ScaleIcon.vue'
+
+// Logo 图标
+export { default as WrenchIcon } from './WrenchIcon.vue'

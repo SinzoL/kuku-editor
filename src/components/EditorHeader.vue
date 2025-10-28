@@ -1,6 +1,9 @@
 <template>
   <header class="header">
-    <div class="logo">Kuku Editor</div>
+    <div class="logo">
+      <WrenchIcon :size="28" color="#64ffda" class="logo-icon" />
+      <span class="logo-text">Kuku Editor</span>
+    </div>
     <div class="controls">
       <button class="btn" @click="emit('reset-scene')">重置场景</button>
       <button class="btn primary" @click="emit('export-scene')">导出场景</button>
@@ -9,6 +12,8 @@
 </template>
 
 <script setup lang="ts">
+import WrenchIcon from '@/assets/icons/WrenchIcon.vue'
+
 // 定义事件
 const emit = defineEmits<{
   'reset-scene': []
@@ -28,8 +33,19 @@ const emit = defineEmits<{
 }
 
 .logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 1.5rem;
   font-weight: bold;
+  color: #64ffda;
+}
+
+.logo-icon {
+  flex-shrink: 0;
+}
+
+.logo-text {
   color: #64ffda;
 }
 
