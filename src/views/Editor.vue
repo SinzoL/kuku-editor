@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useWasmStore } from '@/stores/wasm'
 import { useThreeEngine } from '@/composables/useThreeEngine'
 
@@ -137,6 +137,24 @@ const handleDragEnd = () => {
   }, 500)
 }
 
+// 监听实时变换更新事件
+const handleTransformUpdate = (event: CustomEvent) => {
+  if (selectedObject.value && event.detail) {
+    const { position, rotation, scale } = event.detail
+    
+    // 强制触发响应式更新 - 创建新的对象引用
+    selectedObject.value = {
+      ...selectedObject.value,
+      position: { x: position.x, y: position.y, z: position.z },
+      rotation: { x: rotation.x, y: rotation.y, z: rotation.z },
+      scale: { x: scale.x, y: scale.y, z: scale.z }
+    }
+    
+    // 更新 scaleValue
+    scaleValue.value = scale.x
+  }
+}
+
 const updateObjectPosition = (axis: string, value: number) => {
   if (selectedObject.value) {
     selectedObject.value.position[axis] = value
@@ -213,13 +231,20 @@ const initializeEngine = async (canvas: HTMLCanvasElement) => {
     // 定期更新统计 - 降低更新频率
     setInterval(updateStats, 500)
     
-    // 监听拖拽结束事件
+    // 监听拖拽结束事件和实时变换更新
     window.addEventListener('transform-drag-end', handleDragEnd)
+    window.addEventListener('transform-change', handleTransformUpdate)
   } catch (error) {
     console.error('初始化失败:', error)
     isLoading.value = false
   }
 }
+
+// 清理事件监听器
+onUnmounted(() => {
+  window.removeEventListener('transform-drag-end', handleDragEnd)
+  window.removeEventListener('transform-change', handleTransformUpdate)
+})
 </script>
 
 <style scoped>

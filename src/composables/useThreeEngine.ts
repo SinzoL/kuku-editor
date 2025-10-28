@@ -83,6 +83,29 @@ export function useThreeEngine() {
       // 监听变换事件
       transformControls.value.addEventListener('objectChange', () => {
         // 变换过程中的处理逻辑（如果需要的话）
+        if(selectedObject.value) {
+          window.dispatchEvent(new CustomEvent('transform-change', {
+            detail: {
+              objectId: selectedObject.value.userData.id,
+              objectName: selectedObject.value.userData.name,
+              position: {
+                x: selectedObject.value.position.x,
+                y: selectedObject.value.position.y,
+                z: selectedObject.value.position.z
+              },
+              rotation: {
+                x: selectedObject.value.rotation.x,
+                y: selectedObject.value.rotation.y,
+                z: selectedObject.value.rotation.z
+              },
+              scale: {
+                x: selectedObject.value.scale.x,
+                y: selectedObject.value.scale.y,
+                z: selectedObject.value.scale.z
+              }
+            }
+          }));
+        }
       })
       
       // 暴露拖拽状态检查函数
