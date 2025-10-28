@@ -133,17 +133,8 @@ const handleDragEnd = () => {
 
 // 监听实时变换更新事件
 const handleTransformUpdate = (event: CustomEvent) => {
-  if (selectedObject.value && event.detail) {
-    const { position, rotation, scale } = event.detail
-    
-    // 强制触发响应式更新 - 创建新的对象引用
-    selectedObject.value = {
-      ...selectedObject.value,
-      position: { x: position.x, y: position.y, z: position.z },
-      rotation: { x: rotation.x, y: rotation.y, z: rotation.z },
-      scale: { x: scale.x, y: scale.y, z: scale.z }
-    }
-  }
+  // Three.js 对象的属性变化会自动反映在 UI 中
+  // 这个函数现在主要用于未来可能需要的额外处理
 }
 
 const updateObjectPosition = (axis: string, value: number) => {
