@@ -1,37 +1,7 @@
 <template>
   <section class="section">
     <h3>对象属性</h3>
-    <div class="view-controls">
-      <div class="transform-modes" v-if="selectedObject">
-        <label class="mode-label">变换模式:</label>
-        <div class="mode-buttons">
-          <button 
-            class="mode-btn" 
-            :class="{ active: transformMode === 'translate' }"
-            @click="emit('set-transform-mode', 'translate')"
-            title="平移模式"
-          >
-            <TranslateIcon class="mode-icon" />
-          </button>
-          <button 
-            class="mode-btn" 
-            :class="{ active: transformMode === 'rotate' }"
-            @click="emit('set-transform-mode', 'rotate')"
-            title="旋转模式"
-          >
-            <RotateIcon class="mode-icon" />
-          </button>
-          <button 
-            class="mode-btn" 
-            :class="{ active: transformMode === 'scale' }"
-            @click="emit('set-transform-mode', 'scale')"
-            title="缩放模式"
-          >
-            <ScaleIcon class="mode-icon" />
-          </button>
-        </div>
-      </div>
-    </div>
+
     <div v-if="selectedObject" class="properties">
       <div class="property-group">
         <label class="property-label">位置 X</label>
@@ -107,19 +77,15 @@
 </template>
 
 <script setup lang="ts">
-import { TranslateIcon, RotateIcon, ScaleIcon } from '@/assets/icons'
-
 // 定义 Props
 interface Props {
   selectedObject: any
-  transformMode: string
 }
 
 defineProps<Props>()
 
 // 定义事件
 const emit = defineEmits<{
-  'set-transform-mode': [mode: string]
   'update-position': [axis: string, value: number]
   'update-axis-scale': [axis: string, value: number]
 }>()
@@ -189,72 +155,7 @@ const updateAxisScale = (axis: string, event: Event) => {
   cursor: pointer;
 }
 
-.view-controls {
-  margin-bottom: 15px;
-  padding: 10px;
-  background: #2a2a2a;
-  border-radius: 6px;
-  border: 1px solid #444;
-}
 
-.transform-modes {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #444;
-}
-
-.mode-label {
-  display: block;
-  font-size: 12px;
-  color: #aaa;
-  margin-bottom: 8px;
-}
-
-.mode-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.mode-btn {
-  background: #333;
-  border: 1px solid #555;
-  color: white;
-  padding: 6px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
-  min-width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mode-btn:hover {
-  background: #404040;
-  border-color: #64ffda;
-}
-
-.mode-btn.active {
-  background: #64ffda;
-  color: #1a1a1a;
-  border-color: #64ffda;
-}
-
-.mode-icon {
-  width: 14px;
-  height: 14px;
-  color: #888;
-}
-
-.mode-btn:hover .mode-icon {
-  color: #64ffda;
-}
-
-.mode-btn.active .mode-icon {
-  color: #1a1a1a;
-}
 
 .no-selection {
   text-align: center;

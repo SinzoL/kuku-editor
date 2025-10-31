@@ -15,19 +15,17 @@
       />
     </div>
 
-    <!-- 浮动侧边栏 -->
-    <aside class="sidebar" :class="{ 'sidebar-collapsed': !sidebarVisible }">
+    <!-- 左侧边栏 - 创建和编辑功能 -->
+    <aside class="left-sidebar" :class="{ 'sidebar-collapsed': !leftSidebarVisible }">
       <div class="sidebar-content">
         <!-- 几何体创建 -->
         <GeometryPanel @add-geometry="addGeometry" />
 
-        <!-- 对象属性 -->
-        <ObjectProperties 
-          :selected-object="selectedObject"
+        <!-- 变换模式控制 -->
+        <TransformModePanel 
           :transform-mode="transformMode"
+          :selected-object="selectedObject"
           @set-transform-mode="setTransformMode"
-          @update-position="updateObjectPosition"
-          @update-axis-scale="updateObjectAxisScale"
         />
 
         <!-- WebAssembly 控制 -->
@@ -38,15 +36,47 @@
       </div>
     </aside>
 
-    <!-- 侧边栏切换按钮 -->
+    <!-- 左侧边栏切换按钮 -->
     <button 
-      class="sidebar-toggle" 
-      @click="toggleSidebar"
-      :title="sidebarVisible ? '收起侧边栏' : '展开侧边栏'"
+      class="left-sidebar-toggle" 
+      @click="toggleLeftSidebar"
+      :title="leftSidebarVisible ? '收起左侧边栏' : '展开左侧边栏'"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path v-if="sidebarVisible" d="M15 18l-6-6 6-6"/>
+        <path v-if="leftSidebarVisible" d="M15 18l-6-6 6-6"/>
         <path v-else d="M9 18l6-6-6-6"/>
+      </svg>
+    </button>
+
+    <!-- 右侧边栏 - 物体属性调整 -->
+    <aside 
+      class="right-sidebar" 
+      :class="{ 
+        'sidebar-collapsed': !rightSidebarVisible,
+        'sidebar-hidden': !selectedObject 
+      }"
+      v-if="selectedObject"
+    >
+      <div class="sidebar-content">
+        <!-- 对象属性 -->
+        <ObjectProperties 
+          :selected-object="selectedObject"
+          @update-position="updateObjectPosition"
+          @update-axis-scale="updateObjectAxisScale"
+        />
+      </div>
+    </aside>
+
+    <!-- 右侧边栏切换按钮 -->
+    <button 
+      class="right-sidebar-toggle" 
+      @click="toggleRightSidebar"
+      :title="rightSidebarVisible ? '收起右侧边栏' : '展开右侧边栏'"
+      v-if="selectedObject"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path v-if="rightSidebarVisible" d="M9 18l6-6-6-6"/>
+        <path v-else d="M15 18l-6-6 6-6"/>
       </svg>
     </button>
 
@@ -69,6 +99,7 @@ import { useThreeEngine } from '@/composables/useThreeEngine'
 // 导入组件
 import EditorHeader from '@/components/EditorHeader.vue'
 import GeometryPanel from '@/components/GeometryPanel.vue'
+import TransformModePanel from '@/components/TransformModePanel.vue'
 import ObjectProperties from '@/components/ObjectProperties.vue'
 import WasmPanel from '@/components/WasmPanel.vue'
 import Viewport3D from '@/components/Viewport3D.vue'
@@ -82,7 +113,8 @@ const isLoading = ref(true)
 const fps = ref(60)
 const objectCount = ref(0)
 const transformMode = ref('translate')
-const sidebarVisible = ref(true)
+const leftSidebarVisible = ref(true)
+const rightSidebarVisible = ref(true)
 
 // 拖拽状态跟踪
 let lastDragEndTime = 0
@@ -198,8 +230,12 @@ const setTransformMode = (mode: string) => {
   engineSetTransformMode(mode)
 }
 
-const toggleSidebar = () => {
-  sidebarVisible.value = !sidebarVisible.value
+const toggleLeftSidebar = () => {
+  leftSidebarVisible.value = !leftSidebarVisible.value
+}
+
+const toggleRightSidebar = () => {
+  rightSidebarVisible.value = !rightSidebarVisible.value
 }
 
 // FPS 平滑处理
@@ -267,8 +303,8 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-/* 浮动侧边栏 */
-.sidebar {
+/* 左侧边栏 */
+.left-sidebar {
   position: absolute;
   top: 60px;
   left: 0;
@@ -284,29 +320,55 @@ onUnmounted(() => {
   box-shadow: 2px 0 25px rgba(0, 0, 0, 0.4);
 }
 
+/* 右侧边栏 */
+.right-sidebar {
+  position: absolute;
+  top: 60px;
+  right: 0;
+  width: 280px;
+  height: calc(100vh - 100px);
+  background: rgba(37, 37, 37, 0.95);
+  backdrop-filter: blur(15px);
+  border-left: 1px solid rgba(68, 68, 68, 0.5);
+  padding: 20px;
+  overflow-y: auto;
+  z-index: 150;
+  transition: transform 0.3s ease;
+  box-shadow: -2px 0 25px rgba(0, 0, 0, 0.4);
+}
+
 .sidebar-collapsed {
   transform: translateX(-100%);
+}
+
+.right-sidebar.sidebar-collapsed {
+  transform: translateX(100%);
+}
+
+.sidebar-hidden {
+  display: none;
 }
 
 .sidebar-content {
   width: 100%;
 }
 
-.sidebar::-webkit-scrollbar { 
+.left-sidebar::-webkit-scrollbar,
+.right-sidebar::-webkit-scrollbar { 
   display: none; 
 }
 
-/* 侧边栏切换按钮 */
-.sidebar-toggle {
+/* 左侧边栏切换按钮 */
+.left-sidebar-toggle {
   position: absolute;
   top: 50%;
   left: 280px;
   transform: translateY(-50%);
   z-index: 200;
   background: rgba(51, 51, 51, 0.9);
-  backdrop-filter: blur(10px);
-  border: 1px solid #555;
-  border-radius: 0 8px 8px 0;
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(85, 85, 85, 0.8);
+  border-radius: 0 12px 12px 0;
   padding: 12px 8px;
   color: #fff;
   cursor: pointer;
@@ -314,25 +376,52 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 2px 0 15px rgba(0, 0, 0, 0.4);
+  box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
 }
 
-.sidebar-collapsed ~ .sidebar-toggle {
+.sidebar-collapsed ~ .left-sidebar-toggle {
   left: 0;
-  border-radius: 0 8px 8px 0;
 }
 
-.sidebar-toggle:hover {
-  background: rgba(68, 68, 68, 0.9);
-  border-color: #666;
+/* 右侧边栏切换按钮 */
+.right-sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  right: 280px;
+  transform: translateY(-50%);
+  z-index: 200;
+  background: rgba(51, 51, 51, 0.9);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(85, 85, 85, 0.8);
+  border-radius: 12px 0 0 12px;
+  padding: 12px 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: -2px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-collapsed ~ .right-sidebar-toggle {
+  right: 0;
+}
+
+.left-sidebar-toggle:hover,
+.right-sidebar-toggle:hover {
+  background: rgba(68, 68, 68, 0.95);
+  border-color: rgba(102, 102, 102, 0.8);
   transform: translateY(-50%) scale(1.05);
 }
 
-.sidebar-toggle svg {
+.left-sidebar-toggle svg,
+.right-sidebar-toggle svg {
   transition: transform 0.2s ease;
 }
 
-.sidebar-toggle:hover svg {
+.left-sidebar-toggle:hover svg,
+.right-sidebar-toggle:hover svg {
   transform: scale(1.1);
 }
 
