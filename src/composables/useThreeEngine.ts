@@ -214,10 +214,16 @@ export function useThreeEngine() {
     
     // 移除坐标轴，只使用 TransformControls
     
-    // 随机位置
+    // 计算几何体的边界盒，获取高度的一半作为Y偏移
+    geometry.computeBoundingBox()
+    const boundingBox = geometry.boundingBox!
+    const height = boundingBox.max.y - boundingBox.min.y
+    const yOffset = height / 2 // 物体高度的一半，确保底部贴地
+    
+    // 随机位置，确保物体紧贴地面
     mesh.position.set(
       (Math.random() - 0.5) * 8,  // X: -4 到 4 (左右)
-      Math.random() * 4 + 0.5,    // Y: 0.5 到 4.5 (高度，确保在地面上方)
+      yOffset,                    // Y: 动态计算，确保紧贴地面
       (Math.random() - 0.5) * 8   // Z: -4 到 4 (前后)
     )
     
