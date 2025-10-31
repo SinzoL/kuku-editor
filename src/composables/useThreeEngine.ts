@@ -39,7 +39,7 @@ export function useThreeEngine() {
         0.1, 
         1000
       ))
-      camera.value.position.set(10, 10, 10)
+      camera.value.position.set(20, 20, 20)
       
       // 创建渲染器 - 使用 markRaw 防止响应式代理
       renderer.value = markRaw(new THREE.WebGLRenderer({ 

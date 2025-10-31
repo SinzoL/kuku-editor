@@ -1,14 +1,23 @@
 <template>
   <div class="editor-container">
-    <!-- 头部工具栏 -->
-    <EditorHeader 
-      @reset-scene="resetScene"
-      @export-scene="exportScene"
+    <!-- 3D 视口 - 占据整个屏幕 -->
+    <Viewport3D 
+      :is-loading="isLoading"
+      @canvas-click="handleCanvasClick"
+      @canvas-ready="initializeEngine"
     />
 
-    <div class="main-content">
-      <!-- 侧边栏 -->
-      <aside class="sidebar">
+    <!-- 浮动头部工具栏 -->
+    <div class="floating-header">
+      <EditorHeader 
+        @reset-scene="resetScene"
+        @export-scene="exportScene"
+      />
+    </div>
+
+    <!-- 浮动侧边栏 -->
+    <aside class="sidebar" :class="{ 'sidebar-collapsed': !sidebarVisible }">
+      <div class="sidebar-content">
         <!-- 几何体创建 -->
         <GeometryPanel @add-geometry="addGeometry" />
 
@@ -26,22 +35,29 @@
           :has-selected-object="!!selectedObject"
           @optimize-mesh="optimizeWithWasm"
         />
-      </aside>
+      </div>
+    </aside>
 
-      <!-- 3D 视口 -->
-      <Viewport3D 
-        :is-loading="isLoading"
-        @canvas-click="handleCanvasClick"
-        @canvas-ready="initializeEngine"
+    <!-- 侧边栏切换按钮 -->
+    <button 
+      class="sidebar-toggle" 
+      @click="toggleSidebar"
+      :title="sidebarVisible ? '收起侧边栏' : '展开侧边栏'"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path v-if="sidebarVisible" d="M15 18l-6-6 6-6"/>
+        <path v-else d="M9 18l6-6-6-6"/>
+      </svg>
+    </button>
+
+    <!-- 浮动状态栏 -->
+    <div class="floating-footer">
+      <StatusBar 
+        :selected-info="selectedInfo"
+        :fps="fps"
+        :object-count="objectCount"
       />
     </div>
-
-    <!-- 状态栏 -->
-    <StatusBar 
-      :selected-info="selectedInfo"
-      :fps="fps"
-      :object-count="objectCount"
-    />
   </div>
 </template>
 
@@ -66,6 +82,7 @@ const isLoading = ref(true)
 const fps = ref(60)
 const objectCount = ref(0)
 const transformMode = ref('translate')
+const sidebarVisible = ref(true)
 
 // 拖拽状态跟踪
 let lastDragEndTime = 0
@@ -181,6 +198,10 @@ const setTransformMode = (mode: string) => {
   engineSetTransformMode(mode)
 }
 
+const toggleSidebar = () => {
+  sidebarVisible.value = !sidebarVisible.value
+}
+
 // FPS 平滑处理
 const fpsHistory: number[] = []
 const maxFpsHistory = 10
@@ -229,33 +250,127 @@ onUnmounted(() => {
 
 <style scoped>
 .editor-container {
-  display: grid;
-  grid-template-rows: 60px 1fr 40px;
-  grid-template-columns: 280px 1fr;
+  position: relative;
+  width: 100vw;
   height: 100vh;
   background: #1a1a1a;
+  overflow: hidden;
 }
 
-.main-content {
-  display: contents;
+/* 3D视口占据整个屏幕 */
+:deep(.viewport-3d) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }
 
+/* 浮动侧边栏 */
 .sidebar {
-  background: #252525;
-  border-right: 1px solid #444;
+  position: absolute;
+  top: 60px;
+  left: 0;
+  width: 280px;
+  height: calc(100vh - 100px);
+  background: rgba(37, 37, 37, 0.95);
+  backdrop-filter: blur(15px);
+  border-right: 1px solid rgba(68, 68, 68, 0.5);
   padding: 20px;
   overflow-y: auto;
+  z-index: 150;
+  transition: transform 0.3s ease;
+  box-shadow: 2px 0 25px rgba(0, 0, 0, 0.4);
 }
+
+.sidebar-collapsed {
+  transform: translateX(-100%);
+}
+
+.sidebar-content {
+  width: 100%;
+}
+
 .sidebar::-webkit-scrollbar { 
   display: none; 
 }
-/* 确保头部组件占据正确的网格位置 */
-:deep(.header) {
-  grid-column: 1 / -1;
+
+/* 侧边栏切换按钮 */
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  left: 280px;
+  transform: translateY(-50%);
+  z-index: 200;
+  background: rgba(51, 51, 51, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid #555;
+  border-radius: 0 8px 8px 0;
+  padding: 12px 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 0 15px rgba(0, 0, 0, 0.4);
 }
 
-/* 确保状态栏组件占据正确的网格位置 */
+.sidebar-collapsed ~ .sidebar-toggle {
+  left: 0;
+  border-radius: 0 8px 8px 0;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(68, 68, 68, 0.9);
+  border-color: #666;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.sidebar-toggle svg {
+  transition: transform 0.2s ease;
+}
+
+.sidebar-toggle:hover svg {
+  transform: scale(1.1);
+}
+
+/* 浮动头部工具栏 */
+.floating-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  z-index: 100;
+  background: rgba(26, 26, 26, 0.9);
+  backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(68, 68, 68, 0.3);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 浮动状态栏 */
+.floating-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  z-index: 100;
+  background: rgba(26, 26, 26, 0.9);
+  backdrop-filter: blur(15px);
+  border-top: 1px solid rgba(68, 68, 68, 0.3);
+  box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.3);
+}
+
+:deep(.header) {
+  width: 100%;
+  height: 100%;
+}
+
 :deep(.status-bar) {
-  grid-column: 1 / -1;
+  width: 100%;
+  height: 100%;
 }
 </style>
