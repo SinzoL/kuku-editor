@@ -385,18 +385,29 @@ export function useThreeEngine() {
     return null
   }
   document.addEventListener('keydown', function(event) {
+    // 检查当前是否在编辑文本输入框
+    const activeElement = document.activeElement
+    const isEditingText = activeElement && (
+      activeElement.tagName === 'INPUT' || 
+      activeElement.tagName === 'TEXTAREA' ||
+      (activeElement as HTMLElement).contentEditable === 'true'
+    )
+    
     // 处理对象的删除操作
-      if(event.key === 'Delete' || event.key === 'Backspace') {
-        // 是否选中了对象
-        if(selectedObject.value) {
-          deleteSelectedObject()
-          event.preventDefault()
-        }
+    if(event.key === 'Delete' || event.key === 'Backspace') {
+      // 只有在不编辑文本且选中了对象时才删除对象
+      if(!isEditingText && selectedObject.value) {
+        deleteSelectedObject()
+        event.preventDefault()
       }
+    }
 
-      if(event.key === 'Escape') {
+    if(event.key === 'Escape') {
+      // Escape键可以用来取消文本编辑或取消选择对象
+      if(!isEditingText) {
         deselectObject()
       }
+    }
   })
 
   const deselectObject = () => {
