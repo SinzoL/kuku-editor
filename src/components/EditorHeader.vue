@@ -2,7 +2,7 @@
   <header class="header">
     <div class="logo">
       <WrenchIcon :size="28" color="#64ffda" class="logo-icon" />
-      <span class="logo-text">Kuku Editor</span>
+      <span class="logo-text">Kuku</span>
     </div>
     <div class="controls">
       <button class="btn" @click="emit('reset-scene')">重置场景</button>
