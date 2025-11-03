@@ -626,6 +626,7 @@ export function useThreeEngine() {
     canUndo: historyManager.canUndo,
     canRedo: historyManager.canRedo,
     clearHistory: historyManager.clearHistory,
-    getHistoryInfo: historyManager.getHistoryInfo
+    getHistoryInfo: historyManager.getHistoryInfo,
+    historyManager
   }
 }

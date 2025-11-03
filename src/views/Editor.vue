@@ -103,8 +103,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
+import * as THREE from 'three'
 import { useWasmStore } from '@/stores/wasm'
 import { useThreeEngine } from '@/composables/useThreeEngine'
+import { ScaleObjectCommand } from '@/composables/useHistoryManager'
 
 // 导入组件
 import EditorHeader from '@/components/EditorHeader.vue'
@@ -149,7 +151,8 @@ const {
   canUndo,
   canRedo,
   clearHistory,
-  getHistoryInfo
+  getHistoryInfo,
+  historyManager
 } = useThreeEngine()
 
 // 计算属性
@@ -221,14 +224,26 @@ const updateObjectPosition = (axis: string, value: number) => {
 // 滑块拖拽状态跟踪
 let isSliderDragging = false
 let sliderStartScale: any = null
+let lastSliderChangeTime = 0
 
 const updateObjectAxisScale = (axis: string, value: number) => {
   if (selectedObject.value) {
-    // 记录拖拽开始时的状态（仅在开始拖拽时记录一次）
-    if (!isSliderDragging) {
+    const currentTime = Date.now()
+    
+    // 如果距离上次操作超过500ms，认为是新的独立操作
+    if (!isSliderDragging || (currentTime - lastSliderChangeTime > 500)) {
+      // 如果之前有未完成的拖拽，先记录历史
+      if (isSliderDragging && sliderStartScale) {
+        finalizePreviousSliderOperation()
+      }
+      
+      // 开始新的拖拽操作
       isSliderDragging = true
       sliderStartScale = { ...selectedObject.value.scale }
     }
+    
+    // 更新最后操作时间
+    lastSliderChangeTime = currentTime
     
     // 立即修改对象的缩放属性（完全即时响应）
     selectedObject.value.scale[axis] = value
@@ -238,17 +253,40 @@ const updateObjectAxisScale = (axis: string, value: number) => {
   }
 }
 
-// 监听滑块的 mousedown 和 mouseup 事件来跟踪拖拽状态
-const handleSliderMouseUp = () => {
+// 完成之前的滑块操作并记录历史
+const finalizePreviousSliderOperation = () => {
   if (isSliderDragging && selectedObject.value && sliderStartScale) {
-    // 只在拖拽结束时记录一次历史
-    updateObjectTransform(selectedObject.value, {
-      scale: selectedObject.value.scale
-    })
+    // 检查是否真的有变化
+    const hasChanged = 
+      Math.abs(selectedObject.value.scale.x - sliderStartScale.x) > 0.001 ||
+      Math.abs(selectedObject.value.scale.y - sliderStartScale.y) > 0.001 ||
+      Math.abs(selectedObject.value.scale.z - sliderStartScale.z) > 0.001
     
-    // 重置拖拽状态
-    isSliderDragging = false
-    sliderStartScale = null
+    if (hasChanged) {
+      // 创建缩放命令并执行
+      const scaleCommand = new ScaleObjectCommand(
+        selectedObject.value,
+        new THREE.Vector3(sliderStartScale.x, sliderStartScale.y, sliderStartScale.z),
+        new THREE.Vector3(selectedObject.value.scale.x, selectedObject.value.scale.y, selectedObject.value.scale.z)
+      )
+      
+      // 执行命令（这会将命令添加到历史记录中）
+      historyManager.executeCommand(scaleCommand)
+    }
+  }
+}
+
+// 监听全局 mouseup 事件来完成拖拽操作
+const handleSliderMouseUp = () => {
+  if (isSliderDragging) {
+    // 延迟一点时间，确保最后的 input 事件已经处理
+    setTimeout(() => {
+      finalizePreviousSliderOperation()
+      
+      // 重置拖拽状态
+      isSliderDragging = false
+      sliderStartScale = null
+    }, 50)
   }
 }
 
