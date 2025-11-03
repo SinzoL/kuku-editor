@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import * as THREE from 'three'
 
 // 命令接口
 export interface Command {
