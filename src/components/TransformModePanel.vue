@@ -43,15 +43,6 @@
             <span class="mode-text">缩放</span>
           </button>
         </div>
-        <div class="mode-info" v-if="selectedObject">
-          <p class="info-text">
-            <span class="object-name">{{ selectedObject.userData?.name || '未知对象' }}</span>
-            已选中
-          </p>
-        </div>
-        <div class="mode-info" v-else>
-          <p class="info-text no-object">请选择一个对象进行变换</p>
-        </div>
       </div>
     </div>
   </div>
@@ -202,27 +193,5 @@ const toggleCollapse = () => {
 
 .mode-btn.active .mode-text {
   font-weight: 600;
-}
-
-.mode-info {
-  padding-top: 12px;
-  border-top: 1px solid #444;
-}
-
-.info-text {
-  font-size: 12px;
-  color: #aaa;
-  margin: 0;
-  text-align: center;
-}
-
-.object-name {
-  color: #64ffda;
-  font-weight: 500;
-}
-
-.no-object {
-  color: #666;
-  font-style: italic;
 }
 </style>

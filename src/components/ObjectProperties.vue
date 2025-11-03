@@ -1,8 +1,28 @@
 <template>
   <section class="section">
     <h3>对象属性</h3>
+    <div v-if="props.selectedObject" class="object-name-container">
+      名称
+      <div 
+        v-if="!isEditingName" 
+        class="object-name" 
+        @dblclick="startEditName"
+        title="双击编辑名称"
+      >
+        {{ props.selectedObject.userData?.name || '未知对象' }}
+      </div>
+      <input 
+        v-else
+        ref="nameInput"
+        v-model="editingName"
+        class="object-name-input"
+        @blur="finishEditName"
+        @keyup.enter="finishEditName"
+        @keyup.escape="cancelEditName"
+      >
+    </div>
 
-    <div v-if="selectedObject" class="properties">
+    <div v-if="props.selectedObject" class="properties">
       <div class="property-group">
         <label class="property-label">位置 X</label>
         <input 
@@ -77,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref, onMounted, onUnmounted } from 'vue'
+import { computed, watch, ref, onMounted, onUnmounted, nextTick } from 'vue'
 
 // 定义 Props
 interface Props {
@@ -90,10 +110,16 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'update-position': [axis: string, value: number]
   'update-axis-scale': [axis: string, value: number]
+  'update-name': [name: string]
 }>()
 
 // 强制更新的响应式变量
 const forceUpdate = ref(0)
+
+// 名称编辑相关
+const isEditingName = ref(false)
+const editingName = ref('')
+const nameInput = ref<HTMLInputElement>()
 
 // 监听自定义事件来强制更新
 const handleForceUpdate = () => {
@@ -142,6 +168,40 @@ const updateAxisScale = (axis: string, event: Event) => {
   emit('update-axis-scale', axis, parseFloat(target.value))
 }
 
+// 名称编辑方法
+const startEditName = () => {
+  if (!props.selectedObject) return
+  
+  isEditingName.value = true
+  editingName.value = props.selectedObject.userData?.name || '未知对象'
+  
+  nextTick(() => {
+    nameInput.value?.focus()
+    nameInput.value?.select()
+  })
+}
+
+const finishEditName = () => {
+  if (!props.selectedObject) return
+  
+  const newName = editingName.value.trim()
+  const currentName = props.selectedObject.userData?.name || '未知对象'
+  
+  // 只有当名称真的发生变化时才更新
+  if (newName && newName !== currentName) {
+    emit('update-name', newName)
+  }
+  
+  // 退出编辑模式
+  isEditingName.value = false
+  editingName.value = ''
+}
+
+const cancelEditName = () => {
+  isEditingName.value = false
+  editingName.value = ''
+}
+
 // 组件挂载时监听自定义事件
 onMounted(() => {
   window.addEventListener('object-properties-update', handleForceUpdate)
@@ -178,6 +238,38 @@ onUnmounted(() => {
   gap: 6px;
 }
 
+.object-name-container{
+  font-size: 13px;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.object-name{
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.object-name:hover {
+  background-color: rgba(100, 255, 218, 0.1);
+}
+
+.object-name-input {
+  font-size: 14px;
+  font-weight: 600;
+  background: #333;
+  border: 1px solid #64ffda;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  outline: none;
+  min-width: 120px;
+}
 .property-label {
   font-size: 13px;
   color: #ccc;
@@ -204,8 +296,6 @@ onUnmounted(() => {
   outline: none;
   cursor: pointer;
 }
-
-
 
 .no-selection {
   text-align: center;

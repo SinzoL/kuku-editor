@@ -21,7 +21,10 @@
             @click="handleUndo"
             title="撤销 (Ctrl+Z)"
           >
-            <UndoIcon class="btn-icon" />
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 7v6h6"/>
+              <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+            </svg>
             <span class="btn-text">撤销</span>
           </button>
           
@@ -31,7 +34,10 @@
             @click="handleRedo"
             title="重做 (Ctrl+Y)"
           >
-            <RedoIcon class="btn-icon" />
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 7v6h-6"/>
+              <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/>
+            </svg>
             <span class="btn-text">重做</span>
           </button>
         </div>
@@ -62,24 +68,7 @@ import { ref } from 'vue'
 // 响应式数据
 const isCollapsed = ref(false)
 
-// 图标组件（简单的SVG图标）
-const UndoIcon = {
-  template: `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M3 7v6h6"/>
-      <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
-    </svg>
-  `
-}
 
-const RedoIcon = {
-  template: `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 7v6h-6"/>
-      <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3L21 13"/>
-    </svg>
-  `
-}
 
 // Props
 interface Props {

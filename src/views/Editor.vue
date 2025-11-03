@@ -30,8 +30,8 @@
 
         <!-- 历史记录控制 -->
         <HistoryPanel 
-          :can-undo="canUndo"
-          :can-redo="canRedo"
+          :can-undo="canUndo()"
+          :can-redo="canRedo()"
           :history-info="historyInfo"
           @undo="handleUndo"
           @redo="handleRedo"
@@ -72,6 +72,7 @@
           :selected-object="selectedObject"
           @update-position="updateObjectPosition"
           @update-axis-scale="updateObjectAxisScale"
+          @update-name="updateObjectName"
         />
       </div>
     </aside>
@@ -286,6 +287,20 @@ const handleSliderMouseUp = () => {
       isSliderDragging = false
       sliderStartScale = null
     }, 50)
+  }
+}
+
+const updateObjectName = (name: string) => {
+  if (selectedObject.value) {
+    // 确保 userData 对象存在
+    if (!selectedObject.value.userData) {
+      selectedObject.value.userData = {}
+    }
+    
+    // 更新名称
+    selectedObject.value.userData.name = name
+    
+    console.log('🏷️ 对象名称已更新:', name)
   }
 }
 
