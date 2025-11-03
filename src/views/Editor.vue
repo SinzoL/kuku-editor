@@ -302,6 +302,10 @@ const optimizeWithWasm = async () => {
 }
 
 const resetScene = () => {
+  // 先清空历史记录，避免与reset操作冲突
+  handleClearHistory()
+  
+  // 然后重置场景
   engineResetScene()
   selectedObject.value = null
   updateStats()
