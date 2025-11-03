@@ -1,50 +1,64 @@
 <template>
-  <section class="section">
-    <h3>变换模式</h3>
-    <div class="transform-modes">
-      <div class="mode-buttons">
-        <button 
-          class="mode-btn" 
-          :class="{ active: transformMode === 'translate' }"
-          @click="emit('set-transform-mode', 'translate')"
-          title="平移模式 (G)"
-        >
-          <TranslateIcon class="mode-icon" />
-          <span class="mode-text">平移</span>
-        </button>
-        <button 
-          class="mode-btn" 
-          :class="{ active: transformMode === 'rotate' }"
-          @click="emit('set-transform-mode', 'rotate')"
-          title="旋转模式 (R)"
-        >
-          <RotateIcon class="mode-icon" />
-          <span class="mode-text">旋转</span>
-        </button>
-        <button 
-          class="mode-btn" 
-          :class="{ active: transformMode === 'scale' }"
-          @click="emit('set-transform-mode', 'scale')"
-          title="缩放模式 (S)"
-        >
-          <ScaleIcon class="mode-icon" />
-          <span class="mode-text">缩放</span>
-        </button>
-      </div>
-      <div class="mode-info" v-if="selectedObject">
-        <p class="info-text">
-          <span class="object-name">{{ selectedObject.userData?.name || '未知对象' }}</span>
-          已选中
-        </p>
-      </div>
-      <div class="mode-info" v-else>
-        <p class="info-text no-object">请选择一个对象进行变换</p>
+  <div class="transform-panel">
+    <div class="panel-header" @click="toggleCollapse">
+      <h3>变换模式</h3>
+      <button 
+        class="collapse-btn"
+        :class="{ 'collapsed': isCollapsed }"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+      </button>
+    </div>
+    
+    <div class="panel-content" v-show="!isCollapsed">
+      <div class="transform-modes">
+        <div class="mode-buttons">
+          <button 
+            class="mode-btn" 
+            :class="{ active: transformMode === 'translate' }"
+            @click="emit('set-transform-mode', 'translate')"
+            title="平移模式 (G)"
+          >
+            <TranslateIcon class="mode-icon" />
+            <span class="mode-text">平移</span>
+          </button>
+          <button 
+            class="mode-btn" 
+            :class="{ active: transformMode === 'rotate' }"
+            @click="emit('set-transform-mode', 'rotate')"
+            title="旋转模式 (R)"
+          >
+            <RotateIcon class="mode-icon" />
+            <span class="mode-text">旋转</span>
+          </button>
+          <button 
+            class="mode-btn" 
+            :class="{ active: transformMode === 'scale' }"
+            @click="emit('set-transform-mode', 'scale')"
+            title="缩放模式 (S)"
+          >
+            <ScaleIcon class="mode-icon" />
+            <span class="mode-text">缩放</span>
+          </button>
+        </div>
+        <div class="mode-info" v-if="selectedObject">
+          <p class="info-text">
+            <span class="object-name">{{ selectedObject.userData?.name || '未知对象' }}</span>
+            已选中
+          </p>
+        </div>
+        <div class="mode-info" v-else>
+          <p class="info-text no-object">请选择一个对象进行变换</p>
+        </div>
       </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { TranslateIcon, RotateIcon, ScaleIcon } from '@/assets/icons'
 
 // 定义 Props
@@ -59,19 +73,70 @@ defineProps<Props>()
 const emit = defineEmits<{
   'set-transform-mode': [mode: string]
 }>()
+
+// 响应式数据
+const isCollapsed = ref(false)
+
+// 方法
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value
+}
 </script>
 
 <style scoped>
-.section {
-  margin-bottom: 25px;
+.transform-panel {
+  background: rgba(45, 45, 45, 0.8);
+  border: 1px solid rgba(68, 68, 68, 0.6);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
 }
 
-.section h3 {
-  margin-bottom: 15px;
-  color: #64ffda;
-  font-size: 16px;
-  border-bottom: 1px solid #333;
-  padding-bottom: 8px;
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(55, 55, 55, 0.9);
+  border-bottom: 1px solid rgba(68, 68, 68, 0.4);
+  cursor: pointer;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  color: #b0b0b0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collapse-btn:hover {
+  background: rgba(68, 68, 68, 0.5);
+  color: #fff;
+}
+
+.collapse-btn.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.collapse-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.panel-content {
+  padding: 16px;
 }
 
 .transform-modes {

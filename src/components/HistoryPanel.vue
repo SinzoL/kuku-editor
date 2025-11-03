@@ -1,60 +1,76 @@
 <template>
-  <section class="section">
-    <h3>历史记录</h3>
-    <div class="history-controls">
-      <div class="control-buttons">
-        <button 
-          class="history-btn undo-btn" 
-          :disabled="!canUndo"
-          @click="handleUndo"
-          title="撤销 (Ctrl+Z)"
-        >
-          <UndoIcon class="btn-icon" />
-          <span class="btn-text">撤销</span>
-        </button>
-        
-        <button 
-          class="history-btn redo-btn" 
-          :disabled="!canRedo"
-          @click="handleRedo"
-          title="重做 (Ctrl+Y)"
-        >
-          <RedoIcon class="btn-icon" />
-          <span class="btn-text">重做</span>
-        </button>
-      </div>
-      
-      <div class="history-info">
-        <div class="info-item" v-if="historyInfo.lastUndoCommand">
-          <span class="info-label">上次操作:</span>
-          <span class="info-value">{{ historyInfo.lastUndoCommand }}</span>
-        </div>
-        
-        <div class="info-stats">
-          <span class="stat-item">
-            可撤销: <strong>{{ historyInfo.undoCount }}</strong>
-          </span>
-          <span class="stat-item">
-            可重做: <strong>{{ historyInfo.redoCount }}</strong>
-          </span>
-        </div>
-      </div>
-      
+  <div class="history-panel">
+    <div class="panel-header" @click="toggleCollapse">
+      <h3>历史记录</h3>
       <button 
-        class="clear-btn" 
-        @click="handleClearHistory"
-        :disabled="historyInfo.undoCount === 0 && historyInfo.redoCount === 0"
-        title="清空历史记录"
+        class="collapse-btn"
+        :class="{ 'collapsed': isCollapsed }"
       >
-        <TrashIcon class="btn-icon" />
-        <span class="btn-text">清空历史</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
       </button>
     </div>
-  </section>
+    
+    <div class="panel-content" v-show="!isCollapsed">
+      <div class="history-controls">
+        <div class="control-buttons">
+          <button 
+            class="history-btn undo-btn" 
+            :disabled="!canUndo"
+            @click="handleUndo"
+            title="撤销 (Ctrl+Z)"
+          >
+            <UndoIcon class="btn-icon" />
+            <span class="btn-text">撤销</span>
+          </button>
+          
+          <button 
+            class="history-btn redo-btn" 
+            :disabled="!canRedo"
+            @click="handleRedo"
+            title="重做 (Ctrl+Y)"
+          >
+            <RedoIcon class="btn-icon" />
+            <span class="btn-text">重做</span>
+          </button>
+        </div>
+        
+        <div class="history-info">
+          <div class="info-item" v-if="historyInfo.lastUndoCommand">
+            <span class="info-label">上次操作:</span>
+            <span class="info-value">{{ historyInfo.lastUndoCommand }}</span>
+          </div>
+          
+          <div class="info-stats">
+            <span class="stat-item">
+              可撤销: <strong>{{ historyInfo.undoCount }}</strong>
+            </span>
+            <span class="stat-item">
+              可重做: <strong>{{ historyInfo.redoCount }}</strong>
+            </span>
+          </div>
+        </div>
+        
+        <button 
+          class="clear-btn" 
+          @click="handleClearHistory"
+          :disabled="historyInfo.undoCount === 0 && historyInfo.redoCount === 0"
+          title="清空历史记录"
+        >
+          <TrashIcon class="btn-icon" />
+          <span class="btn-text">清空历史</span>
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref } from 'vue'
+
+// 响应式数据
+const isCollapsed = ref(false)
 
 // 图标组件（简单的SVG图标）
 const UndoIcon = {
@@ -106,6 +122,10 @@ const emit = defineEmits<{
 }>()
 
 // Methods
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value
+}
+
 const handleUndo = () => {
   emit('undo')
 }
@@ -122,16 +142,59 @@ const handleClearHistory = () => {
 </script>
 
 <style scoped>
-.section {
-  margin-bottom: 25px;
+.history-panel {
+  background: rgba(45, 45, 45, 0.8);
+  border: 1px solid rgba(68, 68, 68, 0.6);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
 }
 
-.section h3 {
-  margin-bottom: 15px;
-  color: #64ffda;
-  font-size: 16px;
-  border-bottom: 1px solid #333;
-  padding-bottom: 8px;
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(55, 55, 55, 0.9);
+  border-bottom: 1px solid rgba(68, 68, 68, 0.4);
+  cursor: pointer;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  color: #b0b0b0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collapse-btn:hover {
+  background: rgba(68, 68, 68, 0.5);
+  color: #fff;
+}
+
+.collapse-btn.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.collapse-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.panel-content {
+  padding: 16px;
 }
 
 .history-controls {

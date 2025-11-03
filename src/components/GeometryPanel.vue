@@ -1,27 +1,44 @@
 <template>
-  <section class="section">
-    <h3>创建几何体</h3>
-    <div class="geometry-buttons">
+  <div class="geometry-panel">
+    <div class="panel-header" @click="toggleCollapse">
+      <h3>创建几何体</h3>
       <button 
-        v-for="geo in geometryTypes" 
-        :key="geo.type"
-        class="geo-btn" 
-        @click="emit('add-geometry', geo.type)"
+        class="collapse-btn"
+        :class="{ 'collapsed': isCollapsed }"
       >
-        <component :is="geo.icon" class="geo-icon" />
-        {{ geo.name }}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
       </button>
     </div>
-  </section>
+    
+    <div class="panel-content" v-show="!isCollapsed">
+      <div class="geometry-buttons">
+        <button 
+          v-for="geo in geometryTypes" 
+          :key="geo.type"
+          class="geo-btn" 
+          @click="emit('add-geometry', geo.type)"
+        >
+          <component :is="geo.icon" class="geo-icon" />
+          {{ geo.name }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { BoxIcon, SphereIcon, CylinderIcon, TorusIcon } from '@/assets/icons'
 
 // 定义事件
 const emit = defineEmits<{
   'add-geometry': [type: string]
 }>()
+
+// 响应式数据
+const isCollapsed = ref(false)
 
 // 几何体类型
 const geometryTypes = [
@@ -30,19 +47,67 @@ const geometryTypes = [
   { type: 'cylinder', name: '圆柱体', icon: CylinderIcon },
   { type: 'torus', name: '圆环', icon: TorusIcon }
 ]
+
+// 方法
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value
+}
 </script>
 
 <style scoped>
-.section {
-  margin-bottom: 25px;
+.geometry-panel {
+  background: rgba(45, 45, 45, 0.8);
+  border: 1px solid rgba(68, 68, 68, 0.6);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
 }
 
-.section h3 {
-  margin-bottom: 15px;
-  color: #64ffda;
-  font-size: 16px;
-  border-bottom: 1px solid #333;
-  padding-bottom: 8px;
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(55, 55, 55, 0.9);
+  border-bottom: 1px solid rgba(68, 68, 68, 0.4);
+  cursor: pointer;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  color: #b0b0b0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collapse-btn:hover {
+  background: rgba(68, 68, 68, 0.5);
+  color: #fff;
+}
+
+.collapse-btn.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+.collapse-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.panel-content {
+  padding: 16px;
 }
 
 .geometry-buttons {

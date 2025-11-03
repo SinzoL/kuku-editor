@@ -38,8 +38,8 @@
           @clear-history="handleClearHistory"
         />
 
-        <!-- WebAssembly 控制 -->
-        <WasmPanel 
+        <!-- 性能优化 -->
+        <PerformancePanel 
           :has-selected-object="!!selectedObject"
           @optimize-mesh="optimizeWithWasm"
         />
@@ -114,7 +114,7 @@ import GeometryPanel from '@/components/GeometryPanel.vue'
 import TransformModePanel from '@/components/TransformModePanel.vue'
 import HistoryPanel from '@/components/HistoryPanel.vue'
 import ObjectProperties from '@/components/ObjectProperties.vue'
-import WasmPanel from '@/components/WasmPanel.vue'
+import PerformancePanel from '@/components/PerformancePanel.vue'
 import Viewport3D from '@/components/Viewport3D.vue'
 import StatusBar from '@/components/StatusBar.vue'
 
