@@ -35,7 +35,6 @@
           :history-info="historyInfo"
           @undo="handleUndo"
           @redo="handleRedo"
-          @clear-history="handleClearHistory"
         />
 
         <!-- 性能优化 -->
@@ -303,12 +302,14 @@ const optimizeWithWasm = async () => {
 
 const resetScene = () => {
   // 先清空历史记录，避免与reset操作冲突
-  handleClearHistory()
+  clearHistory()
   
   // 然后重置场景
   engineResetScene()
   selectedObject.value = null
   updateStats()
+  
+  console.log('🔄 场景和历史记录已重置')
 }
 
 const exportScene = () => {
@@ -337,10 +338,6 @@ const handleUndo = () => {
 const handleRedo = () => {
   redo()
   updateStats()
-}
-
-const handleClearHistory = () => {
-  clearHistory()
 }
 
 // FPS 平滑处理

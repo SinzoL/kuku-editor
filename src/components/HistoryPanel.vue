@@ -51,16 +51,6 @@
             </span>
           </div>
         </div>
-        
-        <button 
-          class="clear-btn" 
-          @click="handleClearHistory"
-          :disabled="historyInfo.undoCount === 0 && historyInfo.redoCount === 0"
-          title="清空历史记录"
-        >
-          <TrashIcon class="btn-icon" />
-          <span class="btn-text">清空历史</span>
-        </button>
       </div>
     </div>
   </div>
@@ -91,15 +81,6 @@ const RedoIcon = {
   `
 }
 
-const TrashIcon = {
-  template: `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="3,6 5,6 21,6"/>
-      <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
-    </svg>
-  `
-}
-
 // Props
 interface Props {
   canUndo: boolean
@@ -118,7 +99,6 @@ defineProps<Props>()
 const emit = defineEmits<{
   'undo': []
   'redo': []
-  'clear-history': []
 }>()
 
 // Methods
@@ -132,12 +112,6 @@ const handleUndo = () => {
 
 const handleRedo = () => {
   emit('redo')
-}
-
-const handleClearHistory = () => {
-  if (confirm('确定要清空所有历史记录吗？此操作不可撤销。')) {
-    emit('clear-history')
-  }
 }
 </script>
 
@@ -297,35 +271,6 @@ const handleClearHistory = () => {
 
 .stat-item strong {
   color: #fff;
-}
-
-.clear-btn {
-  width: 100%;
-  background: #444;
-  border: 1px solid #666;
-  color: #ccc;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.clear-btn:hover:not(:disabled) {
-  background: #d32f2f;
-  border-color: #f44336;
-  color: white;
-}
-
-.clear-btn:disabled {
-  background: #222;
-  border-color: #333;
-  color: #555;
-  cursor: not-allowed;
 }
 
 /* 键盘快捷键提示 */
