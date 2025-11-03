@@ -1,6 +1,14 @@
 import { ref, markRaw } from 'vue'
 import * as THREE from 'three'
 import { useWasmStore } from '@/stores/wasm'
+import { 
+  useHistoryManager, 
+  CreateObjectCommand, 
+  DeleteObjectCommand, 
+  MoveObjectCommand,
+  RotateObjectCommand,
+  ScaleObjectCommand
+} from './useHistoryManager'
 
 export function useThreeEngine() {
   // Three.js 核心对象
@@ -23,6 +31,9 @@ export function useThreeEngine() {
 
   // WASM Store
   const wasmStore = useWasmStore()
+
+  // 历史管理器
+  const historyManager = useHistoryManager()
 
   // 初始化引擎
   const initEngine = async (canvas: HTMLCanvasElement) => {
@@ -64,19 +75,78 @@ export function useThreeEngine() {
       transformControls.value.setSize(0.8)
       scene.value.add(transformControls.value)
       
-      // 添加拖拽状态跟踪
+      // 添加拖拽状态跟踪和变换历史记录
       let isDragging = false
+      let transformStartState: {
+        position: THREE.Vector3
+        rotation: THREE.Euler
+        scale: THREE.Vector3
+      } | null = null
       
       // TransformControls 事件处理
       transformControls.value.addEventListener('dragging-changed', (event: any) => {
         controls.value.enabled = !event.value // 拖拽时禁用轨道控制
         isDragging = event.value
         
-        // 拖拽结束后，发送自定义事件通知 Vue 组件
-        if (!isDragging && selectedObject.value) {
-          setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('transform-drag-end'))
-          }, 10)
+        if (selectedObject.value) {
+          if (isDragging) {
+            // 开始拖拽时记录初始状态
+            transformStartState = {
+              position: selectedObject.value.position.clone(),
+              rotation: selectedObject.value.rotation.clone(),
+              scale: selectedObject.value.scale.clone()
+            }
+          } else {
+            // 拖拽结束时创建历史记录
+            if (transformStartState) {
+              const currentMode = transformControls.value.getMode()
+              const endState = {
+                position: selectedObject.value.position.clone(),
+                rotation: selectedObject.value.rotation.clone(),
+                scale: selectedObject.value.scale.clone()
+              }
+              
+              // 根据变换模式创建相应的命令
+              let command = null
+              if (currentMode === 'translate') {
+                if (!transformStartState.position.equals(endState.position)) {
+                  command = new MoveObjectCommand(
+                    selectedObject.value,
+                    transformStartState.position,
+                    endState.position
+                  )
+                }
+              } else if (currentMode === 'rotate') {
+                if (!transformStartState.rotation.equals(endState.rotation)) {
+                  command = new RotateObjectCommand(
+                    selectedObject.value,
+                    transformStartState.rotation,
+                    endState.rotation
+                  )
+                }
+              } else if (currentMode === 'scale') {
+                if (!transformStartState.scale.equals(endState.scale)) {
+                  command = new ScaleObjectCommand(
+                    selectedObject.value,
+                    transformStartState.scale,
+                    endState.scale
+                  )
+                }
+              }
+              
+              // 如果有变化，执行命令
+              if (command) {
+                historyManager.executeCommand(command)
+              }
+              
+              transformStartState = null
+            }
+            
+            // 发送自定义事件通知 Vue 组件
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('transform-drag-end'))
+            }, 10)
+          }
         }
       })
       
@@ -227,8 +297,9 @@ export function useThreeEngine() {
       (Math.random() - 0.5) * 8   // Z: -4 到 4 (前后)
     )
     
-    scene.value.add(mesh)
-    objects.value.push(mesh)
+    // 使用历史管理器执行创建命令
+    const createCommand = new CreateObjectCommand(scene.value, objects.value, mesh)
+    historyManager.executeCommand(createCommand)
     
     // 自动选中新创建的物体并附加 TransformControls
     if (selectedObject.value) {
@@ -345,22 +416,31 @@ export function useThreeEngine() {
   }
 
   const deleteSelectedObject = () => {
-    if (!selectedObject.value) return
+    if (!selectedObject.value || !scene.value) return
     
-    scene.value!.remove(selectedObject.value)
-
-    objects.value = objects.value.filter(obj => obj !== selectedObject.value)
-
-    if(transformControls.value) {
+    const objectToDelete = selectedObject.value
+    const objectIndex = objects.value.indexOf(objectToDelete)
+    
+    if (objectIndex === -1) return
+    
+    // 使用历史管理器执行删除命令
+    const deleteCommand = new DeleteObjectCommand(
+      scene.value, 
+      objects.value, 
+      objectToDelete, 
+      objectIndex
+    )
+    historyManager.executeCommand(deleteCommand)
+    
+    // 分离 TransformControls
+    if (transformControls.value) {
       transformControls.value.detach()
     }
-
-    selectedObject.value.geometry.dispose()
-    if(selectedObject.value.material instanceof THREE.MeshStandardMaterial)
-      selectedObject.value.material.dispose()
     
-    selectedObject.value= null
-
+    // 清除选择
+    selectedObject.value = null
+    
+    // 更新统计
     stats.value.objectCount = objects.value.length
   }
 
@@ -538,6 +618,14 @@ export function useThreeEngine() {
     resetScene,
     exportScene,
     getStats,
-    setTransformMode
+    setTransformMode,
+    
+    // 历史管理
+    undo: historyManager.undo,
+    redo: historyManager.redo,
+    canUndo: historyManager.canUndo,
+    canRedo: historyManager.canRedo,
+    clearHistory: historyManager.clearHistory,
+    getHistoryInfo: historyManager.getHistoryInfo
   }
 }

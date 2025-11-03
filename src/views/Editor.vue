@@ -28,6 +28,16 @@
           @set-transform-mode="setTransformMode"
         />
 
+        <!-- 历史记录控制 -->
+        <HistoryPanel 
+          :can-undo="canUndo"
+          :can-redo="canRedo"
+          :history-info="historyInfo"
+          @undo="handleUndo"
+          @redo="handleRedo"
+          @clear-history="handleClearHistory"
+        />
+
         <!-- WebAssembly 控制 -->
         <WasmPanel 
           :has-selected-object="!!selectedObject"
@@ -100,6 +110,7 @@ import { useThreeEngine } from '@/composables/useThreeEngine'
 import EditorHeader from '@/components/EditorHeader.vue'
 import GeometryPanel from '@/components/GeometryPanel.vue'
 import TransformModePanel from '@/components/TransformModePanel.vue'
+import HistoryPanel from '@/components/HistoryPanel.vue'
 import ObjectProperties from '@/components/ObjectProperties.vue'
 import WasmPanel from '@/components/WasmPanel.vue'
 import Viewport3D from '@/components/Viewport3D.vue'
@@ -131,7 +142,14 @@ const {
   optimizeMesh,
   getStats,
   setTransformMode: engineSetTransformMode,
-  selectedObject
+  selectedObject,
+  // 历史管理
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+  clearHistory,
+  getHistoryInfo
 } = useThreeEngine()
 
 // 计算属性
@@ -140,6 +158,8 @@ const selectedInfo = computed(() => {
     ? `已选择: ${selectedObject.value.userData?.name || '未知对象'}`
     : '未选择对象'
 })
+
+const historyInfo = computed(() => getHistoryInfo())
 
 // 方法
 const addGeometry = (type: string) => {
@@ -182,8 +202,11 @@ const handleDragEnd = () => {
 
 // 监听实时变换更新事件
 const handleTransformUpdate = (event: CustomEvent) => {
-  // Three.js 对象的属性变化会自动反映在 UI 中
-  // 这个函数现在主要用于未来可能需要的额外处理
+  // 强制触发 Vue 的响应式更新
+  if (selectedObject.value) {
+    // 发送自定义事件通知 ObjectProperties 组件更新
+    window.dispatchEvent(new CustomEvent('object-properties-update'))
+  }
 }
 
 const updateObjectPosition = (axis: string, value: number) => {
@@ -195,12 +218,37 @@ const updateObjectPosition = (axis: string, value: number) => {
   }
 }
 
-
+// 滑块拖拽状态跟踪
+let isSliderDragging = false
+let sliderStartScale: any = null
 
 const updateObjectAxisScale = (axis: string, value: number) => {
   if (selectedObject.value) {
-    // 直接修改对象的缩放属性
+    // 记录拖拽开始时的状态（仅在开始拖拽时记录一次）
+    if (!isSliderDragging) {
+      isSliderDragging = true
+      sliderStartScale = { ...selectedObject.value.scale }
+    }
+    
+    // 立即修改对象的缩放属性（完全即时响应）
     selectedObject.value.scale[axis] = value
+    
+    // 发送自定义事件通知 ObjectProperties 组件更新
+    window.dispatchEvent(new CustomEvent('object-properties-update'))
+  }
+}
+
+// 监听滑块的 mousedown 和 mouseup 事件来跟踪拖拽状态
+const handleSliderMouseUp = () => {
+  if (isSliderDragging && selectedObject.value && sliderStartScale) {
+    // 只在拖拽结束时记录一次历史
+    updateObjectTransform(selectedObject.value, {
+      scale: selectedObject.value.scale
+    })
+    
+    // 重置拖拽状态
+    isSliderDragging = false
+    sliderStartScale = null
   }
 }
 
@@ -238,6 +286,21 @@ const toggleRightSidebar = () => {
   rightSidebarVisible.value = !rightSidebarVisible.value
 }
 
+// 历史管理方法
+const handleUndo = () => {
+  undo()
+  updateStats()
+}
+
+const handleRedo = () => {
+  redo()
+  updateStats()
+}
+
+const handleClearHistory = () => {
+  clearHistory()
+}
+
 // FPS 平滑处理
 const fpsHistory: number[] = []
 const maxFpsHistory = 10
@@ -258,6 +321,20 @@ const updateStats = () => {
   objectCount.value = stats.objectCount
 }
 
+// 键盘快捷键处理
+const handleKeyDown = (event: KeyboardEvent) => {
+  // Ctrl+Z 撤销
+  if (event.ctrlKey && event.key === 'z' && !event.shiftKey) {
+    event.preventDefault()
+    handleUndo()
+  }
+  // Ctrl+Y 或 Ctrl+Shift+Z 重做
+  else if (event.ctrlKey && (event.key === 'y' || (event.key === 'z' && event.shiftKey))) {
+    event.preventDefault()
+    handleRedo()
+  }
+}
+
 // 初始化引擎
 const initializeEngine = async (canvas: HTMLCanvasElement) => {
   try {
@@ -271,6 +348,12 @@ const initializeEngine = async (canvas: HTMLCanvasElement) => {
     // 监听拖拽结束事件和实时变换更新
     window.addEventListener('transform-drag-end', handleDragEnd)
     window.addEventListener('transform-change', handleTransformUpdate)
+    
+    // 监听键盘快捷键
+    window.addEventListener('keydown', handleKeyDown)
+    
+    // 监听全局 mouseup 事件来处理滑块拖拽结束
+    window.addEventListener('mouseup', handleSliderMouseUp)
   } catch (error) {
     console.error('初始化失败:', error)
     isLoading.value = false
@@ -281,6 +364,8 @@ const initializeEngine = async (canvas: HTMLCanvasElement) => {
 onUnmounted(() => {
   window.removeEventListener('transform-drag-end', handleDragEnd)
   window.removeEventListener('transform-change', handleTransformUpdate)
+  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('mouseup', handleSliderMouseUp)
 })
 </script>
 
