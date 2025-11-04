@@ -655,6 +655,21 @@ export function useThreeEngine() {
               const command = new CreateObjectCommand(scene.value, objects.value, model as any)
               historyManager.executeCommand(command)
               
+              // 自动选中新导入的模型
+              if (selectedObject.value) {
+                // 清除之前选中物体的高亮
+                clearObjectHighlight(selectedObject.value)
+              }
+              
+              selectedObject.value = model as any
+              // 高亮新选中的物体
+              highlightObject(model as any)
+              
+              // 附加 TransformControls 到新导入的模型
+              if (transformControls.value) {
+                transformControls.value.attach(model)
+              }
+              
               resolve(model)
             }
           },

@@ -124,12 +124,12 @@ import { ScaleObjectCommand } from '@/composables/useHistoryManager'
 
 // 导入组件
 import EditorHeader from '@/components/EditorHeader.vue'
-import GeometryPanel from '@/components/GeometryPanel.vue'
-import TransformModePanel from '@/components/TransformModePanel.vue'
-import HistoryPanel from '@/components/HistoryPanel.vue'
-import ObjectProperties from '@/components/ObjectProperties.vue'
-import PerformancePanel from '@/components/PerformancePanel.vue'
-import ResourcePanel from '@/components/ResourcePanel.vue'
+import GeometryPanel from '@/components/sidebar/left/GeometryPanel.vue'
+import TransformModePanel from '@/components/sidebar/left/TransformModePanel.vue'
+import HistoryPanel from '@/components/sidebar/left/HistoryPanel.vue'
+import ObjectProperties from '@/components/sidebar/right/ObjectProperties.vue'
+import PerformancePanel from '@/components/sidebar/left/PerformancePanel.vue'
+import ResourcePanel from '@/components/sidebar/left/ResourcePanel.vue'
 import Viewport3D from '@/components/Viewport3D.vue'
 import StatusBar from '@/components/StatusBar.vue'
 
