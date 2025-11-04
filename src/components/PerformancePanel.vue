@@ -85,12 +85,10 @@ const toggleCollapse = () => {
 }
 
 const cleanupUnusedResources = () => {
-  console.log('🧹 清理未使用资源...')
   // TODO: 实现资源清理逻辑
 }
 
 const compressTextures = () => {
-  console.log('🗜️ 压缩纹理...')
   // TODO: 实现纹理压缩逻辑
 }
 </script>

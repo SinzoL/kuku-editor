@@ -19,7 +19,7 @@ export const useWasmStore = defineStore('wasm', () => {
         throw new Error('浏览器不支持 WebAssembly')
       }
       
-      console.log('🔍 检测到 WebAssembly 支持')
+
       isWasmNative.value = true
       
       // 加载 WASM 模块
@@ -28,11 +28,11 @@ export const useWasmStore = defineStore('wasm', () => {
       isLoaded.value = true
       statusText.value = 'WebAssembly 已就绪'
       
-      console.log('✅ WebAssembly 初始化完成')
+
       return true
       
     } catch (error) {
-      console.error('❌ 模块初始化失败:', error)
+
       statusText.value = '加载失败'
       return false
     }

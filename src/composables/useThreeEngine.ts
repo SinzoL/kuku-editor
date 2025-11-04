@@ -18,8 +18,8 @@ export function useThreeEngine() {
   const controls = ref<any>()
   
   // 场景对象
-  const objects = ref<THREE.Mesh[]>([])
-  const selectedObject = ref<THREE.Mesh | null>(null)
+  const objects = ref<THREE.Object3D[]>([])
+  const selectedObject = ref<THREE.Object3D | null>(null)
   const transformControls = ref<any>(null)
   
   // 统计信息
@@ -34,6 +34,29 @@ export function useThreeEngine() {
 
   // 历史管理器
   const historyManager = useHistoryManager()
+
+  // 高亮辅助函数
+  const highlightObject = (object: THREE.Object3D) => {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        const material = child.material as THREE.MeshStandardMaterial
+        if (material.emissive) {
+          material.emissive.setHex(0x444444)
+        }
+      }
+    })
+  }
+
+  const clearObjectHighlight = (object: THREE.Object3D) => {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        const material = child.material as THREE.MeshStandardMaterial
+        if (material.emissive) {
+          material.emissive.setHex(0x000000)
+        }
+      }
+    })
+  }
 
   // 初始化引擎
   const initEngine = async (canvas: HTMLCanvasElement) => {
@@ -193,10 +216,9 @@ export function useThreeEngine() {
       // 开始渲染循环
       animate()
       
-      console.log('✅ Three.js 引擎初始化完成')
+
       
     } catch (error) {
-      console.error('❌ Three.js 引擎初始化失败:', error)
       throw error
     }
   }
@@ -304,12 +326,12 @@ export function useThreeEngine() {
     // 自动选中新创建的物体并附加 TransformControls
     if (selectedObject.value) {
       // 清除之前选中物体的高亮
-      (selectedObject.value.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000)
+      clearObjectHighlight(selectedObject.value)
     }
     
     selectedObject.value = mesh
     // 高亮新选中的物体
-    ;(mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x444444)
+    highlightObject(mesh)
     
     // 附加 TransformControls 到新创建的物体
     if (transformControls.value) {
@@ -319,12 +341,11 @@ export function useThreeEngine() {
     // 更新统计
     stats.value.objectCount = objects.value.length
     
-    console.log(`✅ 创建了 ${type}:`, mesh.userData.name)
     return mesh
   }
 
   // 选择对象
-  const selectObject = (event: MouseEvent): THREE.Mesh | null => {
+  const selectObject = (event: MouseEvent): THREE.Object3D | null => {
     if (!camera.value || !renderer.value) return null
     
     // 如果正在拖拽，不处理选择
@@ -340,40 +361,48 @@ export function useThreeEngine() {
     const raycaster = markRaw(new THREE.Raycaster())
     raycaster.setFromCamera(mouse, camera.value)
     
-    const intersects = raycaster.intersectObjects(objects.value)
+    // 递归搜索，包括导入模型的子对象
+    const intersects = raycaster.intersectObjects(objects.value, true)
     
     if (intersects.length > 0) {
-      const object = intersects[0].object as THREE.Mesh
-      // 确保选中的是网格对象，不是坐标轴
-      if (object.type === 'Mesh' && object.userData.type) {
+      const hitObject = intersects[0].object
+      
+      // 找到顶级对象（在objects数组中的对象）
+      let targetObject = hitObject
+      while (targetObject.parent && !objects.value.includes(targetObject as any)) {
+        targetObject = targetObject.parent
+      }
+      
+      // 确保找到的是我们管理的对象
+      if (objects.value.includes(targetObject as any)) {
         // 如果点击的是已选中的对象，保持选中状态
-        if (selectedObject.value === object) {
-          return object
+        if (selectedObject.value === targetObject) {
+          return targetObject as any
         }
         
         // 清除之前的选择高亮
         if (selectedObject.value) {
-          (selectedObject.value.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000)
+          clearObjectHighlight(selectedObject.value)
         }
         
-        selectedObject.value = object
+        selectedObject.value = targetObject as any
         
         // 高亮选中对象
-        ;(object.material as THREE.MeshStandardMaterial).emissive.setHex(0x444444)
+        highlightObject(targetObject as any)
         
         // 将 TransformControls 附加到选中的对象
         if (transformControls.value) {
-          transformControls.value.attach(object)
+          transformControls.value.attach(targetObject)
         }
         
-        return object
+        return targetObject as any
       }
     }
     
     // 只有在点击真正的空白处时才取消选择
     // 清除之前的选择高亮
     if (selectedObject.value) {
-      (selectedObject.value.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000)
+      clearObjectHighlight(selectedObject.value)
     }
     
     // 取消选择时，分离 TransformControls
@@ -390,9 +419,7 @@ export function useThreeEngine() {
     if (!selectedObject.value) return
     
     // 清除之前的选择高亮
-    if (selectedObject.value) {
-      (selectedObject.value.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000)
-    }
+    clearObjectHighlight(selectedObject.value)
     
     // 取消选择时，分离 TransformControls
     if (transformControls.value) {
@@ -408,7 +435,9 @@ export function useThreeEngine() {
     const objectToDelete = selectedObject.value
     const objectIndex = objects.value.indexOf(objectToDelete)
     
-    if (objectIndex === -1) return
+    if (objectIndex === -1) {
+      return
+    }
     
     // 使用历史管理器执行删除命令
     const deleteCommand = new DeleteObjectCommand(
@@ -429,10 +458,15 @@ export function useThreeEngine() {
     
     // 更新统计
     stats.value.objectCount = objects.value.length
+    
+    // 强制触发一次渲染，确保删除效果立即显示
+    if (renderer.value && scene.value && camera.value) {
+      renderer.value.render(scene.value, camera.value)
+    }
   }
 
   // 更新对象变换
-  const updateObjectTransform = (object: THREE.Mesh, transform: any) => {
+  const updateObjectTransform = (object: THREE.Object3D, transform: any) => {
     if (transform.position) {
       object.position.copy(transform.position)
     }
@@ -471,16 +505,11 @@ export function useThreeEngine() {
       geometry.setIndex(Array.from(result.indices))
       geometry.computeVertexNormals()
       
-      console.log(`✅ 网格优化完成！
-        原始顶点: ${result.originalVertexCount}
-        优化后顶点: ${result.optimizedVertexCount}
-        减少比例: ${(result.reductionRatio * 100).toFixed(1)}%
-        处理时间: ${result.processingTime.toFixed(2)}ms`)
+
       
       return result
       
     } catch (error) {
-      console.error('❌ 网格优化失败:', error)
       throw error
     }
   }
@@ -510,7 +539,7 @@ export function useThreeEngine() {
       transformControls.value.detach()
     }
     
-    console.log('🔄 场景已重置')
+
   }
 
   // 导出场景
@@ -539,7 +568,7 @@ export function useThreeEngine() {
     link.download = `scene_${Date.now()}.json`
     link.click()
     
-    console.log('💾 场景已导出')
+
   }
 
   // 设置变换模式
@@ -587,6 +616,116 @@ export function useThreeEngine() {
     stats.value.fps = 1000 / (renderTime + 1)
   }
 
+  // 资源导入功能
+  const importModel = async (file: File, name: string) => {
+    try {
+      // 动态导入GLTFLoader
+      const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
+      const loader = new GLTFLoader()
+      
+      // 创建文件URL
+      const url = URL.createObjectURL(file)
+      
+      return new Promise((resolve, reject) => {
+        loader.load(
+          url,
+          (gltf) => {
+            // 清理URL
+            URL.revokeObjectURL(url)
+            
+            // 处理加载的模型
+            const model = gltf.scene
+            model.userData.name = name
+            model.userData.type = 'imported-model'
+            
+            // 计算模型的包围盒，确保正确定位
+            const box = new THREE.Box3().setFromObject(model)
+            const center = box.getCenter(new THREE.Vector3())
+            const size = box.getSize(new THREE.Vector3())
+            
+            // 将模型移动到地面上
+            model.position.set(0, -box.min.y, 0)
+            
+            // 添加到场景
+            if (scene.value) {
+              scene.value.add(model)
+              objects.value.push(model as any)
+              
+              // 创建历史记录
+              const command = new CreateObjectCommand(scene.value, objects.value, model as any)
+              historyManager.executeCommand(command)
+              
+              resolve(model)
+            }
+          },
+          undefined,
+          (error) => {
+            URL.revokeObjectURL(url)
+            reject(error)
+          }
+        )
+      })
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const importTexture = async (file: File, name: string) => {
+    try {
+      const loader = new THREE.TextureLoader()
+      const url = URL.createObjectURL(file)
+      
+      return new Promise((resolve, reject) => {
+        loader.load(
+          url,
+          (texture) => {
+            // 清理URL
+            URL.revokeObjectURL(url)
+            
+            // 设置纹理属性
+            texture.name = name
+            texture.userData = { name, type: 'imported-texture' }
+            
+            resolve(texture)
+          },
+          undefined,
+          (error) => {
+            URL.revokeObjectURL(url)
+            reject(error)
+          }
+        )
+      })
+    } catch (error) {
+      throw error
+    }
+  }
+
+  const addResourceToScene = (resource: any) => {
+    if (!scene.value) return
+    
+    try {
+      if (resource.type === 'model' && resource.file) {
+        // 重新加载并添加模型到场景
+        importModel(resource.file, resource.name)
+      } else if (resource.type === 'texture' && selectedObject.value) {
+        // 将纹理应用到选中的对象
+        importTexture(resource.file, resource.name).then((texture: any) => {
+          if (selectedObject.value && selectedObject.value.material) {
+            const material = selectedObject.value.material as THREE.MeshStandardMaterial
+            if (material.map) {
+              material.map.dispose() // 清理旧纹理
+            }
+            material.map = texture
+            material.needsUpdate = true
+
+          }
+        })
+      }
+    } catch (error) {
+
+    }
+  }
+
   return {
     // 状态
     scene,
@@ -608,6 +747,11 @@ export function useThreeEngine() {
     setTransformMode,
     deleteSelectedObject,
     deselectObject,
+    
+    // 资源导入
+    importModel,
+    importTexture,
+    addResourceToScene,
     
     // 历史管理
     undo: historyManager.undo,

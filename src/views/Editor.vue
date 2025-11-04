@@ -33,6 +33,13 @@
           @set-transform-mode="setTransformMode"
         />
 
+        <!-- 资源导入 -->
+        <ResourcePanel 
+          @import-model="handleImportModel"
+          @import-texture="handleImportTexture"
+          @add-resource-to-scene="handleAddResourceToScene"
+        />
+
         <!-- 历史记录控制 -->
         <HistoryPanel 
           :can-undo="canUndo()"
@@ -122,6 +129,7 @@ import TransformModePanel from '@/components/TransformModePanel.vue'
 import HistoryPanel from '@/components/HistoryPanel.vue'
 import ObjectProperties from '@/components/ObjectProperties.vue'
 import PerformancePanel from '@/components/PerformancePanel.vue'
+import ResourcePanel from '@/components/ResourcePanel.vue'
 import Viewport3D from '@/components/Viewport3D.vue'
 import StatusBar from '@/components/StatusBar.vue'
 
@@ -154,6 +162,10 @@ const {
   deleteSelectedObject: engineDeleteSelectedObject,
   deselectObject: engineDeselectObject,
   selectedObject,
+  // 资源导入
+  importModel,
+  importTexture,
+  addResourceToScene: engineAddResourceToScene,
   // 历史管理
   undo,
   redo,
@@ -179,6 +191,36 @@ const addGeometry = (type: string) => {
   if (object) {
     selectedObject.value = object
     updateStats()
+  }
+}
+
+// 资源导入处理
+const handleImportModel = async (file: File, name: string) => {
+  try {
+    const model = await importModel(file, name)
+    if (model) {
+      selectedObject.value = model as any
+      updateStats()
+    }
+  } catch (error) {
+    // 处理导入失败
+  }
+}
+
+const handleImportTexture = async (file: File, name: string) => {
+  try {
+    await importTexture(file, name)
+  } catch (error) {
+    // 处理纹理导入失败
+  }
+}
+
+const handleAddResourceToScene = (resource: any) => {
+  try {
+    engineAddResourceToScene(resource)
+    updateStats()
+  } catch (error) {
+    // 处理添加资源失败
   }
 }
 
@@ -309,7 +351,7 @@ const updateObjectName = (name: string) => {
     // 更新名称
     selectedObject.value.userData.name = name
     
-    console.log('🏷️ 对象名称已更新:', name)
+
   }
 }
 
@@ -318,9 +360,8 @@ const optimizeWithWasm = async () => {
   
   try {
     const result = await optimizeMesh(selectedObject.value)
-    console.log('网格优化完成:', result)
   } catch (error) {
-    console.error('网格优化失败:', error)
+    // 处理网格优化失败
   }
 }
 
@@ -333,7 +374,7 @@ const resetScene = () => {
   selectedObject.value = null
   updateStats()
   
-  console.log('🔄 场景和历史记录已重置')
+
 }
 
 const exportScene = () => {
@@ -441,7 +482,6 @@ const initializeEngine = async (canvas: HTMLCanvasElement) => {
     // 监听全局 mouseup 事件来处理滑块拖拽结束
     window.addEventListener('mouseup', handleSliderMouseUp)
   } catch (error) {
-    console.error('初始化失败:', error)
     isLoading.value = false
   }
 }

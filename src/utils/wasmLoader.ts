@@ -36,7 +36,7 @@ export async function loadWasmModule(): Promise<WasmModule> {
  * 内部加载函数
  */
 async function loadWasmModuleInternal(): Promise<WasmModule> {
-  console.log('🔄 开始加载 WebAssembly 模块...')
+
   
   // 同时加载 WASM 文件和 JS 胶水代码
   const [wasmResponse, jsResponse] = await Promise.all([
@@ -80,7 +80,7 @@ async function loadWasmModuleInternal(): Promise<WasmModule> {
       }
     })
     
-    console.log('✅ WebAssembly 模块加载成功')
+
     
     return {
       MeshOptimizer: module.MeshOptimizer,

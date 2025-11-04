@@ -23,8 +23,8 @@ export class CreateObjectCommand extends BaseCommand {
   
   constructor(
     private scene: THREE.Scene,
-    private objects: THREE.Mesh[],
-    private object: THREE.Mesh
+    private objects: THREE.Object3D[],
+    private object: THREE.Object3D
   ) {
     super()
   }
@@ -51,15 +51,60 @@ export class DeleteObjectCommand extends BaseCommand {
   
   constructor(
     private scene: THREE.Scene,
-    private objects: THREE.Mesh[],
-    private object: THREE.Mesh,
+    private objects: THREE.Object3D[],
+    private object: THREE.Object3D,
     private objectIndex: number
   ) {
     super()
   }
   
   execute(): void {
+    // 强制清理导入模型的所有子对象
+    if (this.object.userData.type === 'imported-model') {
+      // 递归移除所有子对象
+      const removeChildren = (obj: THREE.Object3D) => {
+        while (obj.children.length > 0) {
+          const child = obj.children[0]
+          removeChildren(child) // 递归清理子对象
+          obj.remove(child) // 从父对象移除
+          
+          // 清理网格资源
+          if (child instanceof THREE.Mesh) {
+            if (child.geometry) {
+              child.geometry.dispose()
+            }
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(mat => mat.dispose())
+              } else {
+                child.material.dispose()
+              }
+            }
+          }
+        }
+      }
+      
+      removeChildren(this.object)
+    }
+    
+    // 从场景中移除对象
     this.scene.remove(this.object)
+    
+    // 强制清理对象本身
+    if (this.object instanceof THREE.Mesh) {
+      if (this.object.geometry) {
+        this.object.geometry.dispose()
+      }
+      if (this.object.material) {
+        if (Array.isArray(this.object.material)) {
+          this.object.material.forEach(mat => mat.dispose())
+        } else {
+          this.object.material.dispose()
+        }
+      }
+    }
+    
+    // 从objects数组中移除对象
     const index = this.objects.indexOf(this.object)
     if (index > -1) {
       this.objects.splice(index, 1)
@@ -77,7 +122,7 @@ export class MoveObjectCommand extends BaseCommand {
   description = '移动对象'
   
   constructor(
-    private object: THREE.Mesh,
+    private object: THREE.Object3D,
     private oldPosition: THREE.Vector3,
     private newPosition: THREE.Vector3
   ) {
@@ -98,7 +143,7 @@ export class RotateObjectCommand extends BaseCommand {
   description = '旋转对象'
   
   constructor(
-    private object: THREE.Mesh,
+    private object: THREE.Object3D,
     private oldRotation: THREE.Euler,
     private newRotation: THREE.Euler
   ) {
@@ -119,7 +164,7 @@ export class ScaleObjectCommand extends BaseCommand {
   description = '缩放对象'
   
   constructor(
-    private object: THREE.Mesh,
+    private object: THREE.Object3D,
     private oldScale: THREE.Vector3,
     private newScale: THREE.Vector3
   ) {
@@ -174,13 +219,12 @@ export function useHistoryManager() {
       undoStack.value.shift()
     }
     
-    console.log(`✅ 执行命令: ${command.description}`)
+
   }
   
   // 撤销
   const undo = (): boolean => {
     if (undoStack.value.length === 0) {
-      console.log('❌ 没有可撤销的操作')
       return false
     }
     
@@ -188,7 +232,7 @@ export function useHistoryManager() {
     if (command.canUndo()) {
       command.undo()
       redoStack.value.push(command)
-      console.log(`↶ 撤销: ${command.description}`)
+
       return true
     }
     
@@ -198,14 +242,13 @@ export function useHistoryManager() {
   // 重做
   const redo = (): boolean => {
     if (redoStack.value.length === 0) {
-      console.log('❌ 没有可重做的操作')
       return false
     }
     
     const command = redoStack.value.pop()!
     command.execute()
     undoStack.value.push(command)
-    console.log(`↷ 重做: ${command.description}`)
+
     return true
   }
   
@@ -213,7 +256,7 @@ export function useHistoryManager() {
   const clearHistory = () => {
     undoStack.value = []
     redoStack.value = []
-    console.log('🗑️ 历史记录已清空')
+
   }
   
   // 获取历史状态
