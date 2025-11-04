@@ -1,5 +1,10 @@
 <template>
-  <div class="editor-container">
+  <div 
+    class="editor-container" 
+    tabindex="0"
+    @keydown="handleKeyDown"
+    @click="focusContainer"
+  >
     <!-- 3D 视口 - 占据整个屏幕 -->
     <Viewport3D 
       :is-loading="isLoading"
@@ -144,6 +149,8 @@ const {
   optimizeMesh,
   getStats,
   setTransformMode: engineSetTransformMode,
+  deleteSelectedObject: engineDeleteSelectedObject,
+  deselectObject: engineDeselectObject,
   selectedObject,
   // 历史管理
   undo,
@@ -377,6 +384,14 @@ const updateStats = () => {
 
 // 键盘快捷键处理
 const handleKeyDown = (event: KeyboardEvent) => {
+  // 检查当前焦点是否在输入框或可编辑元素上
+  const activeElement = document.activeElement
+  const isEditingText = activeElement && (
+    activeElement.tagName === 'INPUT' || 
+    activeElement.tagName === 'TEXTAREA' ||
+    (activeElement as HTMLElement).contentEditable === 'true'
+  )
+  
   // Ctrl+Z 撤销
   if (event.ctrlKey && event.key === 'z' && !event.shiftKey) {
     event.preventDefault()
@@ -387,6 +402,21 @@ const handleKeyDown = (event: KeyboardEvent) => {
     event.preventDefault()
     handleRedo()
   }
+  // Delete/Backspace 删除选中对象 - 只有在不编辑文本时才执行
+  else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedObject.value && !isEditingText) {
+    event.preventDefault()
+    engineDeleteSelectedObject()
+  }
+  // Escape 取消选择 - 只有在不编辑文本时才执行
+  else if (event.key === 'Escape' && !isEditingText) {
+    engineDeselectObject()
+  }
+}
+
+// 确保容器获得焦点以响应键盘事件
+const focusContainer = (event: MouseEvent) => {
+  const target = event.currentTarget as HTMLElement
+  target.focus()
 }
 
 // 初始化引擎
@@ -430,6 +460,11 @@ onUnmounted(() => {
   height: 100vh;
   background: #1a1a1a;
   overflow: hidden;
+  outline: none;
+}
+
+.editor-container:focus {
+  box-shadow: inset 0 0 0 2px rgba(100, 255, 218, 0.2);
 }
 
 /* 3D视口占据整个屏幕 */
