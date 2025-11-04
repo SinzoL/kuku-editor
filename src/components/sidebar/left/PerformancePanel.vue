@@ -101,7 +101,7 @@
         <h4>WebAssembly 优化</h4>
         <WasmPanel 
           :has-selected-object="hasSelectedObject"
-          @optimize-mesh="$emit('optimize-mesh')"
+          @optimize-mesh="handleOptimizeMesh"
         />
       </div>
       
@@ -161,11 +161,18 @@ const props = defineProps<{
   }
 }>()
 
-// Emits
-const emit = defineEmits<{
-  'optimize-mesh': []
-  'update-performance-config': [config: any]
-}>()
+// 事件总线
+import { useEventBus, EditorEvents } from '@/composables/useEventBus'
+const { emit } = useEventBus()
+
+// 事件处理
+const handleOptimizeMesh = () => {
+  emit('performance:optimize-mesh')
+}
+
+const handleUpdatePerformanceConfig = (config: any) => {
+  emit(EditorEvents.CONFIG_UPDATE_PERFORMANCE, config)
+}
 
 // 响应式数据
 const isCollapsed = ref(false)
@@ -225,7 +232,7 @@ const formatNumber = (num: number) => {
 }
 
 const updateOptimizations = () => {
-  emit('update-performance-config', {
+  handleUpdatePerformanceConfig({
     enableFrustumCulling: renderOptimizations.frustumCulling,
     enableLOD: renderOptimizations.enableLOD,
     enableInstancing: renderOptimizations.enableInstancing
@@ -233,7 +240,7 @@ const updateOptimizations = () => {
 }
 
 const updatePerformanceTarget = () => {
-  emit('update-performance-config', {
+  handleUpdatePerformanceConfig({
     targetFPS: performanceTarget.targetFPS,
     maxDrawCalls: performanceTarget.maxDrawCalls
   })

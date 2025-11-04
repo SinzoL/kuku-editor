@@ -8,7 +8,7 @@
       
       <button 
         class="btn wasm-btn" 
-        @click="emit('optimize-mesh')" 
+        @click="handleOptimizeMesh" 
         :disabled="!wasmStore.isLoaded || !hasSelectedObject"
       >
         网格优化
@@ -27,10 +27,14 @@ interface Props {
 
 defineProps<Props>()
 
-// 定义事件
-const emit = defineEmits<{
-  'optimize-mesh': []
-}>()
+// 事件总线
+import { useEventBus } from '@/composables/useEventBus'
+const { emit } = useEventBus()
+
+// 事件处理
+const handleOptimizeMesh = () => {
+  emit('wasm:optimize-mesh')
+}
 
 // Store
 const wasmStore = useWasmStore()

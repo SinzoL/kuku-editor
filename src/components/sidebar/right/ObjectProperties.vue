@@ -106,12 +106,9 @@ interface Props {
 
 const props = defineProps<Props>()
 
-// 定义事件
-const emit = defineEmits<{
-  'update-position': [axis: string, value: number]
-  'update-axis-scale': [axis: string, value: number]
-  'update-name': [name: string]
-}>()
+// 事件总线
+import { useEventBus } from '@/composables/useEventBus'
+const { emit } = useEventBus()
 
 // 强制更新的响应式变量
 const forceUpdate = ref(0)
@@ -159,13 +156,13 @@ const objectScale = computed(() => {
 // 更新位置
 const updatePosition = (axis: string, event: Event) => {
   const target = event.target as HTMLInputElement
-  emit('update-position', axis, parseFloat(target.value))
+  emit('object:update-position', { axis, value: parseFloat(target.value) })
 }
 
 // 更新单轴缩放
 const updateAxisScale = (axis: string, event: Event) => {
   const target = event.target as HTMLInputElement
-  emit('update-axis-scale', axis, parseFloat(target.value))
+  emit('object:update-scale', { axis, value: parseFloat(target.value) })
 }
 
 // 名称编辑方法
@@ -189,7 +186,7 @@ const finishEditName = () => {
   
   // 只有当名称真的发生变化时才更新
   if (newName && newName !== currentName) {
-    emit('update-name', newName)
+    emit('object:update-name', { name: newName })
   }
   
   // 退出编辑模式

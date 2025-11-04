@@ -18,7 +18,7 @@
           v-for="geo in geometryTypes" 
           :key="geo.type"
           class="geo-btn" 
-          @click="emit('add-geometry', geo.type)"
+          @click="handleCreateGeometry(geo.type)"
         >
           <component :is="geo.icon" class="geo-icon" />
           {{ geo.name }}
@@ -31,11 +31,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { BoxIcon, SphereIcon, CylinderIcon, TorusIcon } from '@/assets/icons'
+import { useEventBus, EditorEvents } from '@/composables/useEventBus'
 
-// 定义事件
-const emit = defineEmits<{
-  'add-geometry': [type: string]
-}>()
+// 事件总线
+const { emit } = useEventBus()
 
 // 响应式数据
 const isCollapsed = ref(false)
@@ -47,6 +46,11 @@ const geometryTypes = [
   { type: 'cylinder', name: '圆柱体', icon: CylinderIcon },
   { type: 'torus', name: '圆环', icon: TorusIcon }
 ]
+
+// 通过事件总线创建几何体
+const handleCreateGeometry = (type: string) => {
+  emit(EditorEvents.CREATE_GEOMETRY, { type })
+}
 
 // 方法
 const toggleCollapse = () => {

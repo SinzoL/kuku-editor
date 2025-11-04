@@ -18,24 +18,27 @@ interface Props {
 
 defineProps<Props>()
 
-// 定义事件
-const emit = defineEmits<{
-  'canvas-click': [event: MouseEvent]
-  'canvas-ready': [canvas: HTMLCanvasElement]
-}>()
+// 事件总线
+import { useEventBus, EditorEvents } from '@/composables/useEventBus'
+const { emit } = useEventBus()
+
+// 事件处理
+const handleCanvasClick = (event: MouseEvent) => {
+  emit(EditorEvents.CANVAS_CLICK, { event })
+}
+
+const handleCanvasReady = (canvas: HTMLCanvasElement) => {
+  console.log('📺 Canvas 元素准备就绪，发送事件...')
+  emit(EditorEvents.CANVAS_READY, { canvas })
+}
 
 // 响应式数据
 const canvasRef = ref<HTMLCanvasElement>()
 
-// 处理画布点击
-const handleCanvasClick = (event: MouseEvent) => {
-  emit('canvas-click', event)
-}
-
 // 生命周期
 onMounted(() => {
   if (canvasRef.value) {
-    emit('canvas-ready', canvasRef.value)
+    handleCanvasReady(canvasRef.value)
   }
 })
 </script>

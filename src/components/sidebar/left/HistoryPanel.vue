@@ -64,6 +64,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useEventBus, EditorEvents } from '@/composables/useEventBus'
 
 // 响应式数据
 const isCollapsed = ref(false)
@@ -84,23 +85,20 @@ interface Props {
 
 defineProps<Props>()
 
-// Events
-const emit = defineEmits<{
-  'undo': []
-  'redo': []
-}>()
-
 // Methods
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
 }
 
+// 事件总线
+const { emit: emitEvent } = useEventBus()
+
 const handleUndo = () => {
-  emit('undo')
+  emitEvent(EditorEvents.HISTORY_UNDO)
 }
 
 const handleRedo = () => {
-  emit('redo')
+  emitEvent(EditorEvents.HISTORY_REDO)
 }
 </script>
 

@@ -8,13 +8,13 @@
     <!-- 3D 视口 - 占据整个屏幕 -->
     <Viewport3D 
       :is-loading="isLoading"
-      @canvas-click="handleCanvasClick"
-      @canvas-ready="initializeEngine"
     />
 
     <!-- 浮动头部工具栏 -->
     <div class="floating-header">
       <EditorHeader 
+        @import-config="handleImportConfig"
+        @export-config="handleExportConfig"
         @reset-scene="resetScene"
         @export-scene="exportScene"
       />
@@ -24,37 +24,31 @@
     <aside class="left-sidebar" :class="{ 'sidebar-collapsed': !leftSidebarVisible }">
       <div class="sidebar-content">
         <!-- 几何体创建 -->
-        <GeometryPanel @add-geometry="addGeometry" />
+        <GeometryPanel />
+
+        <!-- 几何体参数配置 -->
+        <GeometryConfigPanel />
 
         <!-- 变换模式控制 -->
         <TransformModePanel 
           :transform-mode="transformMode"
           :selected-object="selectedObject"
-          @set-transform-mode="setTransformMode"
         />
 
         <!-- 资源导入 -->
-        <ResourcePanel 
-          @import-model="handleImportModel"
-          @import-texture="handleImportTexture"
-          @add-resource-to-scene="handleAddResourceToScene"
-        />
+        <ResourcePanel />
 
         <!-- 历史记录控制 -->
         <HistoryPanel 
-          :can-undo="canUndo()"
-          :can-redo="canRedo()"
+          :can-undo="canUndo"
+          :can-redo="canRedo"
           :history-info="historyInfo"
-          @undo="handleUndo"
-          @redo="handleRedo"
         />
 
         <!-- 性能优化 -->
         <PerformancePanel 
           :has-selected-object="!!selectedObject"
           :stats="currentStats"
-          @optimize-mesh="optimizeWithWasm"
-          @update-performance-config="updatePerformanceConfig"
         />
       </div>
     </aside>
@@ -85,9 +79,6 @@
         <!-- 对象属性 -->
         <ObjectProperties 
           :selected-object="selectedObject"
-          @update-position="updateObjectPosition"
-          @update-axis-scale="updateObjectAxisScale"
-          @update-name="updateObjectName"
         />
       </div>
     </aside>
@@ -118,15 +109,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import * as THREE from 'three'
 import { useWasmStore } from '@/stores/wasm'
 import { useThreeEngine } from '@/composables/useThreeEngine'
+import { useEditorConfig } from '@/composables/useEditorConfig'
+import { useEventBus, EditorEvents } from '@/composables/useEventBus'
+import { useEditorActions } from '@/composables/useEditorActions'
 import { ScaleObjectCommand } from '@/composables/useHistoryManager'
 
 // 导入组件
 import EditorHeader from '@/components/EditorHeader.vue'
 import GeometryPanel from '@/components/sidebar/left/GeometryPanel.vue'
+import GeometryConfigPanel from '@/components/sidebar/left/GeometryConfigPanel.vue'
 import TransformModePanel from '@/components/sidebar/left/TransformModePanel.vue'
 import HistoryPanel from '@/components/sidebar/left/HistoryPanel.vue'
 import ObjectProperties from '@/components/sidebar/right/ObjectProperties.vue'
@@ -137,6 +132,30 @@ import StatusBar from '@/components/StatusBar.vue'
 
 // Store
 const wasmStore = useWasmStore()
+
+// 配置管理器
+const { 
+  config, 
+  updateConfig, 
+  exportConfigToFile, 
+  importConfig,
+  resetConfig 
+} = useEditorConfig()
+
+// 事件总线和统一行为管理
+const { emit, on } = useEventBus()
+const { initializeActions, cleanup } = useEditorActions()
+
+// 立即设置 Canvas 事件监听器（在组件创建时就设置，而不是等到 onMounted）
+console.log('🚀 设置 Canvas 事件监听器...')
+on(EditorEvents.CANVAS_READY, (data: { canvas: HTMLCanvasElement }) => {
+  console.log('📺 Canvas 准备就绪，开始初始化引擎...')
+  initializeEngine(data.canvas)
+})
+
+on(EditorEvents.CANVAS_CLICK, (data: { event: MouseEvent }) => {
+  handleCanvasClick(data.event)
+})
 
 // 响应式数据
 const isLoading = ref(true)
@@ -185,64 +204,54 @@ const selectedInfo = computed(() => {
     : '未选择对象'
 })
 
-const historyInfo = computed(() => getHistoryInfo())
-
-// 方法
-const addGeometry = (type: string) => {
-  const object = engineAddGeometry(type)
-  if (object) {
-    selectedObject.value = object
-    updateStats()
+const historyInfo = computed(() => {
+  const info = getHistoryInfo()
+  return {
+    undoCount: Math.max(0, info.currentIndex + 1), // currentIndex从-1开始，所以+1
+    redoCount: Math.max(0, info.totalCommands - info.currentIndex - 1),
+    lastUndoCommand: info.currentCommand,
+    lastRedoCommand: null // 新的历史管理器暂不支持此字段
   }
-}
+})
 
-// 资源导入处理
-const handleImportModel = async (file: File, name: string) => {
-  try {
-    const model = await importModel(file, name)
-    if (model) {
-      selectedObject.value = model as any
-      updateStats()
-    }
-  } catch (error) {
-    // 处理导入失败
-  }
-}
-
-const handleImportTexture = async (file: File, name: string) => {
-  try {
-    await importTexture(file, name)
-  } catch (error) {
-    // 处理纹理导入失败
-  }
-}
-
-const handleAddResourceToScene = (resource: any) => {
-  try {
-    engineAddResourceToScene(resource)
-    updateStats()
-  } catch (error) {
-    // 处理添加资源失败
-  }
-}
-
+// 简化的事件处理方法（通过事件总线）
 const handleCanvasClick = (event: MouseEvent) => {
   // 延迟处理点击事件，避免拖拽结束后的误触发
   setTimeout(() => {
-    // 检查是否刚刚结束拖拽
-    if (isDragJustEnded) {
-      return
-    }
+    if (isDragJustEnded) return
     
-    // 检查时间差作为备用方案
     const timeSinceLastDrag = Date.now() - lastDragEndTime
-    if (timeSinceLastDrag < 500) {
-      return
-    }
+    if (timeSinceLastDrag < 500) return
     
-    const object = engineSelectObject(event)
-    selectedObject.value = object
+    // 通过事件总线处理对象选择
+    emit(EditorEvents.SELECT_OBJECT, event)
   }, 100)
+}
+
+// 配置管理
+const handleImportConfig = () => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (file) {
+      try {
+        const text = await file.text()
+        const configData = JSON.parse(text)
+        await importConfig(configData)
+        console.log('配置导入成功')
+      } catch (error) {
+        console.error('配置导入失败:', error)
+      }
+    }
+  }
+  input.click()
+}
+
+const handleExportConfig = () => {
+  exportConfigToFile()
+  console.log('配置导出成功')
 }
 
 // 监听拖拽结束事件
@@ -265,13 +274,9 @@ const handleTransformUpdate = (event: CustomEvent) => {
   }
 }
 
+// 通过事件总线处理对象变换
 const updateObjectPosition = (axis: string, value: number) => {
-  if (selectedObject.value) {
-    selectedObject.value.position[axis] = value
-    updateObjectTransform(selectedObject.value, {
-      position: selectedObject.value.position
-    })
-  }
+  emit(EditorEvents.UPDATE_OBJECT_POSITION, { axis, value })
 }
 
 // 滑块拖拽状态跟踪
@@ -344,48 +349,25 @@ const handleSliderMouseUp = () => {
 }
 
 const updateObjectName = (name: string) => {
-  if (selectedObject.value) {
-    // 确保 userData 对象存在
-    if (!selectedObject.value.userData) {
-      selectedObject.value.userData = {}
-    }
-    
-    // 更新名称
-    selectedObject.value.userData.name = name
-    
-
-  }
+  emit(EditorEvents.UPDATE_OBJECT_NAME, name)
 }
 
 const optimizeWithWasm = async () => {
   if (!selectedObject.value || !wasmStore.isLoaded) return
-  
-  try {
-    const result = await optimizeMesh(selectedObject.value)
-  } catch (error) {
-    // 处理网格优化失败
-  }
+  emit(EditorEvents.OPTIMIZE_MESH)
 }
 
 const resetScene = () => {
-  // 先清空历史记录，避免与reset操作冲突
-  clearHistory()
-  
-  // 然后重置场景
-  engineResetScene()
-  selectedObject.value = null
-  updateStats()
-  
-
+  emit(EditorEvents.RESET_SCENE)
 }
 
 const exportScene = () => {
-  engineExportScene()
+  emit(EditorEvents.EXPORT_SCENE)
 }
 
 const setTransformMode = (mode: string) => {
   transformMode.value = mode
-  engineSetTransformMode(mode)
+  emit(EditorEvents.SET_TRANSFORM_MODE, mode)
 }
 
 const toggleLeftSidebar = () => {
@@ -396,15 +378,13 @@ const toggleRightSidebar = () => {
   rightSidebarVisible.value = !rightSidebarVisible.value
 }
 
-// 历史管理方法
+// 历史管理方法（通过事件总线）
 const handleUndo = () => {
-  undo()
-  updateStats()
+  emit(EditorEvents.UNDO)
 }
 
 const handleRedo = () => {
-  redo()
-  updateStats()
+  emit(EditorEvents.REDO)
 }
 
 // 性能监控
@@ -447,16 +427,9 @@ const updateStats = () => {
   objectCount.value = stats.objectCount
 }
 
-// 更新性能配置
+// 更新性能配置（通过事件总线）
 const updatePerformanceConfig = (config: any) => {
-  // 更新 Three.js 引擎的性能配置
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('update-performance-config', {
-      detail: config
-    }))
-  }
-  
-  console.log('🔧 性能配置已更新:', config)
+  emit(EditorEvents.UPDATE_PERFORMANCE_CONFIG, config)
 }
 
 // 键盘快捷键处理
@@ -499,9 +472,21 @@ const focusContainer = (event: MouseEvent) => {
 // 初始化引擎
 const initializeEngine = async (canvas: HTMLCanvasElement) => {
   try {
+    console.log('🚀 开始初始化 Three.js 引擎...')
     await initEngine(canvas)
+    console.log('✅ Three.js 引擎初始化完成')
+    
+    console.log('🚀 开始初始化 WASM 模块...')
     await wasmStore.initialize()
+    console.log('✅ WASM 模块初始化完成')
+    
+    // 初始化事件总线行为管理
+    console.log('🚀 初始化事件总线行为管理...')
+    initializeActions()
+    console.log('✅ 事件总线行为管理初始化完成')
+    
     isLoading.value = false
+    console.log('🎉 编辑器初始化完成！')
     
     // 定期更新统计 - 降低更新频率
     setInterval(updateStats, 500)
@@ -516,12 +501,22 @@ const initializeEngine = async (canvas: HTMLCanvasElement) => {
     // 监听全局 mouseup 事件来处理滑块拖拽结束
     window.addEventListener('mouseup', handleSliderMouseUp)
   } catch (error) {
+    console.error('❌ 编辑器初始化失败:', error)
     isLoading.value = false
   }
 }
 
+// 组件挂载时的其他初始化
+onMounted(() => {
+  console.log('🚀 Editor 组件已挂载')
+})
+
 // 清理事件监听器
 onUnmounted(() => {
+  // 清理事件总线监听器
+  cleanup()
+  
+  // 清理DOM事件监听器
   window.removeEventListener('transform-drag-end', handleDragEnd)
   window.removeEventListener('transform-change', handleTransformUpdate)
   window.removeEventListener('keydown', handleKeyDown)

@@ -9,5 +9,10 @@ export { default as TranslateIcon } from './TranslateIcon.vue'
 export { default as RotateIcon } from './RotateIcon.vue'
 export { default as ScaleIcon } from './ScaleIcon.vue'
 
+// 操作图标
+export { default as PlusIcon } from './PlusIcon.vue'
+export { default as RefreshIcon } from './RefreshIcon.vue'
+export { default as ResetIcon } from './ResetIcon.vue'
+
 // Logo 图标
 export { default as WrenchIcon } from './WrenchIcon.vue'

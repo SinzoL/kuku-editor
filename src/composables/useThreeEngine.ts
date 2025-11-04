@@ -1,6 +1,7 @@
 import { ref, markRaw } from 'vue'
 import * as THREE from 'three'
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+
 import { useWasmStore } from '@/stores/wasm'
 import { 
   useHistoryManager, 
@@ -252,6 +253,7 @@ export function useThreeEngine() {
       animate()
       
     } catch (error) {
+      console.error('❌ Three.js 引擎初始化失败:', error)
       throw error
     }
   }

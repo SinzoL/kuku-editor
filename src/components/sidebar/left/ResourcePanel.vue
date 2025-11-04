@@ -118,6 +118,7 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { useEventBus, EditorEvents } from '@/composables/useEventBus'
 
 // 组件状态
 const isExpanded = ref(true)
@@ -136,12 +137,8 @@ interface ImportedResource {
 const importedResources = reactive<ImportedResource[]>([])
 const selectedResource = ref<ImportedResource | null>(null)
 
-// 事件定义
-const emit = defineEmits<{
-  'import-model': [file: File, name: string]
-  'import-texture': [file: File, name: string]
-  'add-resource-to-scene': [resource: ImportedResource]
-}>()
+// 事件总线
+const { emit } = useEventBus()
 
 // 面板展开/收起
 const toggleExpanded = () => {
@@ -196,7 +193,7 @@ const processModelFile = (file: File) => {
   importedResources.push(resource)
   selectedResource.value = resource
   
-  emit('import-model', file, file.name)
+  emit(EditorEvents.IMPORT_MODEL, { file, name: file.name })
 }
 
 // 纹理上传
@@ -237,7 +234,7 @@ const processTextureFile = (file: File) => {
   importedResources.push(resource)
   selectedResource.value = resource
   
-  emit('import-texture', file, file.name)
+  emit(EditorEvents.IMPORT_TEXTURE, { file, name: file.name })
 }
 
 // 资源操作
@@ -260,7 +257,7 @@ const deleteResource = (resourceId: string) => {
 
 const addResourceToScene = () => {
   if (selectedResource.value) {
-    emit('add-resource-to-scene', selectedResource.value)
+    emit(EditorEvents.ADD_RESOURCE_TO_SCENE, selectedResource.value)
   }
 }
 </script>

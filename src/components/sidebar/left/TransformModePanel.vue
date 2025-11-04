@@ -18,7 +18,7 @@
           <button 
             class="mode-btn" 
             :class="{ active: transformMode === 'translate' }"
-            @click="emit('set-transform-mode', 'translate')"
+            @click="handleSetTransformMode('translate')"
             title="平移模式 (G)"
           >
             <TranslateIcon class="mode-icon" />
@@ -27,7 +27,7 @@
           <button 
             class="mode-btn" 
             :class="{ active: transformMode === 'rotate' }"
-            @click="emit('set-transform-mode', 'rotate')"
+            @click="handleSetTransformMode('rotate')"
             title="旋转模式 (R)"
           >
             <RotateIcon class="mode-icon" />
@@ -36,7 +36,7 @@
           <button 
             class="mode-btn" 
             :class="{ active: transformMode === 'scale' }"
-            @click="emit('set-transform-mode', 'scale')"
+            @click="handleSetTransformMode('scale')"
             title="缩放模式 (S)"
           >
             <ScaleIcon class="mode-icon" />
@@ -51,6 +51,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { TranslateIcon, RotateIcon, ScaleIcon } from '@/assets/icons'
+import { useEventBus, EditorEvents } from '@/composables/useEventBus'
 
 // 定义 Props
 interface Props {
@@ -60,10 +61,8 @@ interface Props {
 
 defineProps<Props>()
 
-// 定义事件
-const emit = defineEmits<{
-  'set-transform-mode': [mode: string]
-}>()
+// 事件总线
+const { emit } = useEventBus()
 
 // 响应式数据
 const isCollapsed = ref(false)
@@ -71,6 +70,11 @@ const isCollapsed = ref(false)
 // 方法
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
+}
+
+// 通过事件总线设置变换模式
+const handleSetTransformMode = (mode: string) => {
+  emit(EditorEvents.SET_TRANSFORM_MODE, mode)
 }
 </script>
 

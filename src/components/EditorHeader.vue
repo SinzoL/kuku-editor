@@ -5,6 +5,8 @@
       <span class="logo-text">Kuku</span>
     </div>
     <div class="controls">
+      <button class="btn" @click="emit('import-config')">导入配置</button>
+      <button class="btn" @click="emit('export-config')">导出配置</button>
       <button class="btn" @click="emit('reset-scene')">重置场景</button>
       <button class="btn primary" @click="emit('export-scene')">导出场景</button>
     </div>
@@ -13,12 +15,27 @@
 
 <script setup lang="ts">
 import WrenchIcon from '@/assets/icons/WrenchIcon.vue'
+import { useEventBus, EditorEvents } from '@/composables/useEventBus'
 
-// 定义事件
-const emit = defineEmits<{
-  'reset-scene': []
-  'export-scene': []
-}>()
+// 事件总线
+const { emit } = useEventBus()
+
+// 事件处理
+const handleImportConfig = () => {
+  emit(EditorEvents.CONFIG_IMPORT)
+}
+
+const handleExportConfig = () => {
+  emit(EditorEvents.CONFIG_EXPORT)
+}
+
+const handleResetScene = () => {
+  emit('scene:reset')
+}
+
+const handleExportScene = () => {
+  emit('scene:export')
+}
 </script>
 
 <style scoped>
