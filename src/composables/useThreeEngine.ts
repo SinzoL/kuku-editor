@@ -483,9 +483,14 @@ export function useThreeEngine() {
   }
 
   // 使用 WASM 优化网格
-  const optimizeMesh = async (object: THREE.Mesh) => {
+  const optimizeMesh = async (object: THREE.Object3D) => {
     if (!wasmStore.module || !wasmStore.isLoaded) {
       throw new Error('WebAssembly 未就绪')
+    }
+    
+    // 检查对象是否为Mesh类型
+    if (!(object instanceof THREE.Mesh)) {
+      throw new Error('所选对象不是网格对象')
     }
     
     const geometry = object.geometry
@@ -523,9 +528,20 @@ export function useThreeEngine() {
     // 移除所有对象
     objects.value.forEach(obj => {
       scene.value!.remove(obj)
-      obj.geometry.dispose()
-      const material = obj.material as THREE.Material
-      material.dispose()
+      
+      // 递归清理对象资源
+      obj.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          if (child.geometry) child.geometry.dispose()
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(material => material.dispose())
+            } else {
+              child.material.dispose()
+            }
+          }
+        }
+      })
     })
     
     objects.value = []
@@ -551,7 +567,9 @@ export function useThreeEngine() {
         position: obj.position.toArray(),
         rotation: obj.rotation.toArray(),
         scale: obj.scale.toArray(),
-        color: (obj.material as THREE.MeshStandardMaterial).color.getHex()
+        color: obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial 
+          ? obj.material.color.getHex() 
+          : 0xffffff
       })),
       camera: camera.value ? {
         position: camera.value.position.toArray(),
@@ -725,14 +743,13 @@ export function useThreeEngine() {
       } else if (resource.type === 'texture' && selectedObject.value) {
         // 将纹理应用到选中的对象
         importTexture(resource.file, resource.name).then((texture: any) => {
-          if (selectedObject.value && selectedObject.value.material) {
+          if (selectedObject.value && selectedObject.value instanceof THREE.Mesh) {
             const material = selectedObject.value.material as THREE.MeshStandardMaterial
             if (material.map) {
               material.map.dispose() // 清理旧纹理
             }
             material.map = texture
             material.needsUpdate = true
-
           }
         })
       }
