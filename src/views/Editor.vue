@@ -53,6 +53,7 @@
     <!-- 左侧边栏切换按钮 -->
     <button 
       class="left-sidebar-toggle" 
+      :class="{ 'collapsed': !leftSidebarVisible }"
       @click="toggleLeftSidebar"
       :title="leftSidebarVisible ? '收起左侧边栏' : '展开左侧边栏'"
     >
@@ -85,6 +86,7 @@
     <!-- 右侧边栏切换按钮 -->
     <button 
       class="right-sidebar-toggle" 
+      :class="{ 'collapsed': !rightSidebarVisible }"
       @click="toggleRightSidebar"
       :title="rightSidebarVisible ? '收起右侧边栏' : '展开右侧边栏'"
       v-if="selectedObject"
@@ -553,7 +555,8 @@ onUnmounted(() => {
   box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
 }
 
-.sidebar-collapsed ~ .left-sidebar-toggle {
+/* 左侧边栏收缩时按钮位置 */
+.left-sidebar-toggle.collapsed {
   left: 0;
 }
 
@@ -578,7 +581,8 @@ onUnmounted(() => {
   box-shadow: -2px 0 20px rgba(0, 0, 0, 0.5);
 }
 
-.sidebar-collapsed ~ .right-sidebar-toggle {
+/* 右侧边栏收缩时按钮位置 */
+.right-sidebar-toggle.collapsed {
   right: 0;
 }
 
