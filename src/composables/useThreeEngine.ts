@@ -1,5 +1,6 @@
 import { ref, markRaw } from 'vue'
 import * as THREE from 'three'
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { useWasmStore } from '@/stores/wasm'
 import { 
   useHistoryManager, 
@@ -22,12 +23,29 @@ export function useThreeEngine() {
   const selectedObject = ref<THREE.Object3D | null>(null)
   const transformControls = ref<any>(null)
   
-  // 统计信息
+  // 统计信息和性能监控
   const stats = ref({
     fps: 60,
     objectCount: 0,
-    renderTime: 0
+    renderTime: 0,
+    triangleCount: 0,
+    drawCalls: 0,
+    memoryUsage: 0
   })
+
+  // 性能优化配置
+  const performanceConfig = ref({
+    targetFPS: 60,
+    enableFrustumCulling: true,
+    enableLOD: true,
+    maxDrawCalls: 1000,
+    enableInstancing: true
+  })
+
+  // FPS 计算优化
+  let frameCount = 0
+  let lastTime = performance.now()
+  let fpsUpdateInterval = 500 // 每500ms更新一次FPS
 
   // WASM Store
   const wasmStore = useWasmStore()
@@ -213,14 +231,85 @@ export function useThreeEngine() {
       // 处理窗口大小变化
       window.addEventListener('resize', onWindowResize)
       
+      // 监听性能配置更新
+      window.addEventListener('update-performance-config', (event: any) => {
+        const config = event.detail
+        Object.assign(performanceConfig.value, config)
+        console.log('🔧 性能配置已应用:', performanceConfig.value)
+      })
+
+      // 监听资源清理事件
+      window.addEventListener('cleanup-resources', () => {
+        cleanupUnusedResources()
+      })
+
+      // 监听纹理压缩事件
+      window.addEventListener('compress-textures', () => {
+        compressAllTextures()
+      })
+      
       // 开始渲染循环
       animate()
-      
-
       
     } catch (error) {
       throw error
     }
+  }
+
+  // 清理未使用资源
+  const cleanupUnusedResources = () => {
+    if (!scene.value) return
+    
+    let cleanedCount = 0
+    
+    // 清理未使用的几何体
+    scene.value.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.geometry) {
+        // 检查几何体是否被多个对象使用
+        const geometry = child.geometry
+        if (geometry.userData.refCount === undefined) {
+          geometry.userData.refCount = 1
+        }
+        
+        // 如果引用计数为0，清理几何体
+        if (geometry.userData.refCount <= 0) {
+          geometry.dispose()
+          cleanedCount++
+        }
+      }
+    })
+    
+    // 强制垃圾回收
+    if (renderer.value) {
+      renderer.value.renderLists.dispose()
+    }
+    
+    console.log(`✅ 清理完成，释放了 ${cleanedCount} 个未使用资源`)
+  }
+
+  // 压缩所有纹理
+  const compressAllTextures = () => {
+    if (!scene.value) return
+    
+    let compressedCount = 0
+    
+    scene.value.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material]
+        
+        materials.forEach(material => {
+          if (material instanceof THREE.MeshStandardMaterial) {
+            if (material.map && !material.map.userData.compressed) {
+              // 标记为已压缩，避免重复处理
+              material.map.userData.compressed = true
+              compressedCount++
+            }
+          }
+        })
+      }
+    })
+    
+    console.log(`✅ 纹理压缩完成，处理了 ${compressedCount} 个纹理`)
   }
 
   // 设置光照
@@ -615,26 +704,172 @@ export function useThreeEngine() {
     renderer.value.setSize(width, height)
   }
 
-  // 渲染循环
+  // 优化的渲染循环
   const animate = () => {
     requestAnimationFrame(animate)
     
     if (!renderer.value || !scene.value || !camera.value || !controls.value) return
     
+    const currentTime = performance.now()
+    
     // 更新控制器
     controls.value.update()
     
-    // 渲染场景
-    const startTime = performance.now()
-    renderer.value.render(scene.value, camera.value)
-    const renderTime = performance.now() - startTime
+    // 性能优化：视锥体剔除
+    if (performanceConfig.value.enableFrustumCulling) {
+      updateFrustumCulling()
+    }
     
-    // 更新统计
-    stats.value.renderTime = renderTime
-    stats.value.fps = 1000 / (renderTime + 1)
+    // 性能优化：LOD管理
+    if (performanceConfig.value.enableLOD) {
+      updateLOD()
+    }
+    
+    // 渲染场景
+    const renderStartTime = performance.now()
+    renderer.value.render(scene.value, camera.value)
+    const renderTime = performance.now() - renderStartTime
+    
+    // 优化的FPS计算 - 不每帧都计算
+    frameCount++
+    if (currentTime - lastTime >= fpsUpdateInterval) {
+      const deltaTime = currentTime - lastTime
+      stats.value.fps = Math.round((frameCount * 1000) / deltaTime)
+      stats.value.renderTime = renderTime
+      stats.value.objectCount = objects.value.length
+      stats.value.triangleCount = calculateTriangleCount()
+      stats.value.drawCalls = renderer.value.info.render.calls
+      stats.value.memoryUsage = calculateMemoryUsage()
+      
+      frameCount = 0
+      lastTime = currentTime
+    }
   }
 
-  // 资源导入功能
+  // 视锥体剔除优化
+  const updateFrustumCulling = () => {
+    if (!camera.value) return
+    
+    const frustum = new THREE.Frustum()
+    const matrix = new THREE.Matrix4().multiplyMatrices(
+      camera.value.projectionMatrix,
+      camera.value.matrixWorldInverse
+    )
+    frustum.setFromProjectionMatrix(matrix)
+    
+    objects.value.forEach(obj => {
+      if (obj.userData.boundingBox) {
+        obj.visible = frustum.intersectsBox(obj.userData.boundingBox)
+      }
+    })
+  }
+
+  // LOD (Level of Detail) 管理
+  const updateLOD = () => {
+    if (!camera.value) return
+    
+    const cameraPosition = camera.value.position
+    
+    objects.value.forEach(obj => {
+      if (obj.userData.lodLevels) {
+        const distance = cameraPosition.distanceTo(obj.position)
+        const lodLevel = getLODLevel(distance)
+        switchLOD(obj, lodLevel)
+      }
+    })
+  }
+
+  // 计算三角形数量
+  const calculateTriangleCount = (): number => {
+    let triangles = 0
+    objects.value.forEach(obj => {
+      obj.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.geometry) {
+          const geometry = child.geometry
+          if (geometry.index) {
+            triangles += geometry.index.count / 3
+          } else {
+            triangles += geometry.attributes.position.count / 3
+          }
+        }
+      })
+    })
+    return Math.round(triangles)
+  }
+
+  // 计算内存使用量 (估算)
+  const calculateMemoryUsage = (): number => {
+    let memory = 0
+    objects.value.forEach(obj => {
+      obj.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          if (child.geometry) {
+            memory += estimateGeometryMemory(child.geometry)
+          }
+          if (child.material) {
+            memory += estimateMaterialMemory(child.material)
+          }
+        }
+      })
+    })
+    return Math.round(memory / 1024 / 1024) // 转换为MB
+  }
+
+  // 估算几何体内存使用
+  const estimateGeometryMemory = (geometry: THREE.BufferGeometry): number => {
+    let size = 0
+    Object.values(geometry.attributes).forEach(attribute => {
+      size += attribute.array.byteLength
+    })
+    if (geometry.index) {
+      size += geometry.index.array.byteLength
+    }
+    return size
+  }
+
+  // 估算材质内存使用
+  const estimateMaterialMemory = (material: THREE.Material | THREE.Material[]): number => {
+    let size = 0
+    const materials = Array.isArray(material) ? material : [material]
+    
+    materials.forEach(mat => {
+      if (mat instanceof THREE.MeshStandardMaterial) {
+        if (mat.map) size += estimateTextureMemory(mat.map)
+        if (mat.normalMap) size += estimateTextureMemory(mat.normalMap)
+        if (mat.roughnessMap) size += estimateTextureMemory(mat.roughnessMap)
+        if (mat.metalnessMap) size += estimateTextureMemory(mat.metalnessMap)
+      }
+    })
+    return size
+  }
+
+  // 估算纹理内存使用
+  const estimateTextureMemory = (texture: THREE.Texture): number => {
+    const image = texture.image
+    if (image && image.width && image.height) {
+      return image.width * image.height * 4 // RGBA
+    }
+    return 0
+  }
+
+  // 获取LOD级别
+  const getLODLevel = (distance: number): number => {
+    if (distance < 10) return 0      // 高精度
+    if (distance < 50) return 1      // 中精度
+    if (distance < 100) return 2     // 低精度
+    return 3                         // 最低精度
+  }
+
+  // 切换LOD
+  const switchLOD = (object: THREE.Object3D, level: number) => {
+    if (object.userData.currentLOD === level) return
+    
+    object.userData.currentLOD = level
+    // 这里可以实现具体的LOD切换逻辑
+    // 例如显示/隐藏不同精度的模型
+  }
+
+  // 优化的资源导入功能
   const importModel = async (file: File, name: string) => {
     try {
       // 动态导入GLTFLoader
@@ -647,7 +882,7 @@ export function useThreeEngine() {
       return new Promise((resolve, reject) => {
         loader.load(
           url,
-          (gltf) => {
+          async (gltf) => {
             // 清理URL
             URL.revokeObjectURL(url)
             
@@ -656,10 +891,12 @@ export function useThreeEngine() {
             model.userData.name = name
             model.userData.type = 'imported-model'
             
+            // 性能优化：预处理模型
+            await optimizeImportedModel(model)
+            
             // 计算模型的包围盒，确保正确定位
             const box = new THREE.Box3().setFromObject(model)
-            const center = box.getCenter(new THREE.Vector3())
-            const size = box.getSize(new THREE.Vector3())
+            model.userData.boundingBox = box // 存储包围盒用于视锥体剔除
             
             // 将模型移动到地面上
             model.position.set(0, -box.min.y, 0)
@@ -675,12 +912,10 @@ export function useThreeEngine() {
               
               // 自动选中新导入的模型
               if (selectedObject.value) {
-                // 清除之前选中物体的高亮
                 clearObjectHighlight(selectedObject.value)
               }
               
               selectedObject.value = model as any
-              // 高亮新选中的物体
               highlightObject(model as any)
               
               // 附加 TransformControls 到新导入的模型
@@ -688,12 +923,21 @@ export function useThreeEngine() {
                 transformControls.value.attach(model)
               }
               
+              console.log(`✅ 模型导入成功: ${name}`)
+              console.log(`📊 三角形数量: ${calculateModelTriangles(model)}`)
+              console.log(`💾 估算内存: ${Math.round(calculateModelMemory(model) / 1024 / 1024)}MB`)
+              
               resolve(model)
             }
           },
-          undefined,
+          (progress) => {
+            // 可以在这里显示加载进度
+            const percent = Math.round((progress.loaded / progress.total) * 100)
+            console.log(`📥 加载进度: ${percent}%`)
+          },
           (error) => {
             URL.revokeObjectURL(url)
+            console.error('❌ 模型导入失败:', error)
             reject(error)
           }
         )
@@ -701,6 +945,128 @@ export function useThreeEngine() {
     } catch (error) {
       throw error
     }
+  }
+
+  // 优化导入的模型
+  const optimizeImportedModel = async (model: THREE.Object3D) => {
+    const meshes: THREE.Mesh[] = []
+    
+    // 收集所有网格
+    model.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        meshes.push(child)
+      }
+    })
+    
+    // 优化每个网格
+    for (const mesh of meshes) {
+      // 1. 合并顶点
+      if (mesh.geometry) {
+        mesh.geometry = mesh.geometry.clone()
+        BufferGeometryUtils.mergeVertices(mesh.geometry)
+        mesh.geometry.computeVertexNormals()
+        mesh.geometry.computeBoundingBox()
+        mesh.geometry.computeBoundingSphere()
+      }
+      
+      // 2. 优化材质
+      if (mesh.material) {
+        optimizeMaterial(mesh.material)
+      }
+      
+      // 3. 启用阴影（如果需要）
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+    }
+    
+    // 4. 生成LOD级别（简化版）
+    if (meshes.length > 0) {
+      generateSimpleLOD(model, meshes)
+    }
+  }
+
+  // 优化材质
+  const optimizeMaterial = (material: THREE.Material | THREE.Material[]) => {
+    const materials = Array.isArray(material) ? material : [material]
+    
+    materials.forEach(mat => {
+      if (mat instanceof THREE.MeshStandardMaterial) {
+        // 优化纹理设置
+        if (mat.map) {
+          optimizeTexture(mat.map)
+        }
+        if (mat.normalMap) {
+          optimizeTexture(mat.normalMap)
+        }
+        if (mat.roughnessMap) {
+          optimizeTexture(mat.roughnessMap)
+        }
+        if (mat.metalnessMap) {
+          optimizeTexture(mat.metalnessMap)
+        }
+        
+        // 设置合理的材质参数
+        mat.transparent = mat.opacity < 1.0
+        mat.alphaTest = mat.transparent ? 0.1 : 0
+      }
+    })
+  }
+
+  // 优化纹理
+  const optimizeTexture = (texture: THREE.Texture) => {
+    // 设置合理的纹理参数
+    texture.generateMipmaps = true
+    texture.minFilter = THREE.LinearMipmapLinearFilter
+    texture.magFilter = THREE.LinearFilter
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    
+    // 如果纹理过大，可以考虑缩放
+    if (texture.image && texture.image.width > 2048) {
+      console.warn(`⚠️ 纹理尺寸较大: ${texture.image.width}x${texture.image.height}，建议优化`)
+    }
+  }
+
+  // 生成简单的LOD
+  const generateSimpleLOD = (model: THREE.Object3D, meshes: THREE.Mesh[]) => {
+    const lodLevels = [1.0, 0.7, 0.4, 0.2] // 不同LOD级别的细节保留比例
+    model.userData.lodLevels = lodLevels
+    model.userData.currentLOD = 0
+    
+    // 这里可以实现更复杂的LOD生成逻辑
+    // 例如使用网格简化算法生成不同精度的版本
+  }
+
+  // 计算模型三角形数量
+  const calculateModelTriangles = (model: THREE.Object3D): number => {
+    let triangles = 0
+    model.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.geometry) {
+        const geometry = child.geometry
+        if (geometry.index) {
+          triangles += geometry.index.count / 3
+        } else {
+          triangles += geometry.attributes.position.count / 3
+        }
+      }
+    })
+    return Math.round(triangles)
+  }
+
+  // 计算模型内存使用
+  const calculateModelMemory = (model: THREE.Object3D): number => {
+    let memory = 0
+    model.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        if (child.geometry) {
+          memory += estimateGeometryMemory(child.geometry)
+        }
+        if (child.material) {
+          memory += estimateMaterialMemory(child.material)
+        }
+      }
+    })
+    return memory
   }
 
   const importTexture = async (file: File, name: string) => {

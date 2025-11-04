@@ -52,7 +52,9 @@
         <!-- 性能优化 -->
         <PerformancePanel 
           :has-selected-object="!!selectedObject"
+          :stats="currentStats"
           @optimize-mesh="optimizeWithWasm"
+          @update-performance-config="updatePerformanceConfig"
         />
       </div>
     </aside>
@@ -405,6 +407,16 @@ const handleRedo = () => {
   updateStats()
 }
 
+// 性能监控
+const currentStats = ref({
+  fps: 60,
+  objectCount: 0,
+  renderTime: 0,
+  triangleCount: 0,
+  drawCalls: 0,
+  memoryUsage: 0
+})
+
 // FPS 平滑处理
 const fpsHistory: number[] = []
 const maxFpsHistory = 10
@@ -422,7 +434,29 @@ const updateStats = () => {
   const avgFps = fpsHistory.reduce((sum, fps) => sum + fps, 0) / fpsHistory.length
   fps.value = Math.round(avgFps)
   
+  // 更新详细统计信息
+  currentStats.value = {
+    fps: Math.round(avgFps),
+    objectCount: stats.objectCount,
+    renderTime: stats.renderTime || 0,
+    triangleCount: stats.triangleCount || 0,
+    drawCalls: stats.drawCalls || 0,
+    memoryUsage: stats.memoryUsage || 0
+  }
+  
   objectCount.value = stats.objectCount
+}
+
+// 更新性能配置
+const updatePerformanceConfig = (config: any) => {
+  // 更新 Three.js 引擎的性能配置
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('update-performance-config', {
+      detail: config
+    }))
+  }
+  
+  console.log('🔧 性能配置已更新:', config)
 }
 
 // 键盘快捷键处理
