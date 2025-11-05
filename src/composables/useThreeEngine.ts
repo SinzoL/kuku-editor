@@ -12,7 +12,18 @@ import {
   ScaleObjectCommand
 } from './useHistoryManager'
 
+// 单例实例存储
+let engineInstance: any = null
+
 export function useThreeEngine() {
+  // 如果已经存在实例，直接返回
+  if (engineInstance) {
+    return engineInstance
+  }
+
+  // 添加实例标识符用于调试
+  const instanceId = Math.random().toString(36).substr(2, 9)
+  
   // Three.js 核心对象
   const scene = ref<THREE.Scene>()
   const camera = ref<THREE.PerspectiveCamera>()
@@ -236,7 +247,6 @@ export function useThreeEngine() {
       window.addEventListener('update-performance-config', (event: any) => {
         const config = event.detail
         Object.assign(performanceConfig.value, config)
-        console.log('🔧 性能配置已应用:', performanceConfig.value)
       })
 
       // 监听资源清理事件
@@ -356,7 +366,10 @@ export function useThreeEngine() {
 
   // 添加几何体
   const addGeometry = (type: string): THREE.Mesh | null => {
-    if (!scene.value) return null
+    if (!scene.value) {
+      console.error('❌ useThreeEngine: scene 未初始化，无法创建几何体')
+      return null
+    }
     
     let geometry: THREE.BufferGeometry
     
@@ -983,7 +996,7 @@ export function useThreeEngine() {
     
     // 4. 生成LOD级别（简化版）
     if (meshes.length > 0) {
-      generateSimpleLOD(model, meshes)
+      generateSimpleLOD(model)
     }
   }
 
@@ -1030,7 +1043,7 @@ export function useThreeEngine() {
   }
 
   // 生成简单的LOD
-  const generateSimpleLOD = (model: THREE.Object3D, meshes: THREE.Mesh[]) => {
+  const generateSimpleLOD = (model: THREE.Object3D) => {
     const lodLevels = [1.0, 0.7, 0.4, 0.2] // 不同LOD级别的细节保留比例
     model.userData.lodLevels = lodLevels
     model.userData.currentLOD = 0
@@ -1126,7 +1139,10 @@ export function useThreeEngine() {
     }
   }
 
-  return {
+  const engineAPI = {
+    // 添加实例ID用于调试
+    instanceId,
+    
     // 状态
     scene,
     camera,
@@ -1162,4 +1178,9 @@ export function useThreeEngine() {
     getHistoryInfo: historyManager.getHistoryInfo,
     historyManager
   }
+
+  // 将实例保存到单例变量
+  engineInstance = engineAPI
+  
+  return engineAPI
 }

@@ -146,10 +146,16 @@ const {
 const { emit, on } = useEventBus()
 const { initializeActions, cleanup } = useEditorActions()
 
+// 立即初始化事件总线行为管理（在组件创建时就设置）
+console.log('🚀 初始化事件总线行为管理...')
+initializeActions()
+console.log('✅ 事件总线行为管理初始化完成')
+
 // 立即设置 Canvas 事件监听器（在组件创建时就设置，而不是等到 onMounted）
 console.log('🚀 设置 Canvas 事件监听器...')
 on(EditorEvents.CANVAS_READY, (data: { canvas: HTMLCanvasElement }) => {
-  console.log('📺 Canvas 准备就绪，开始初始化引擎...')
+  console.log('📺 Editor: 收到 CANVAS_READY 事件，开始初始化引擎...')
+  console.log('📺 Editor: 接收到的 Canvas 数据:', data)
   initializeEngine(data.canvas)
 })
 
@@ -472,18 +478,14 @@ const focusContainer = (event: MouseEvent) => {
 // 初始化引擎
 const initializeEngine = async (canvas: HTMLCanvasElement) => {
   try {
-    console.log('🚀 开始初始化 Three.js 引擎...')
+    console.log('🚀 Editor: 开始初始化 Three.js 引擎...')
+    console.log('🚀 Editor: 接收到的 Canvas:', canvas)
     await initEngine(canvas)
     console.log('✅ Three.js 引擎初始化完成')
     
     console.log('🚀 开始初始化 WASM 模块...')
     await wasmStore.initialize()
     console.log('✅ WASM 模块初始化完成')
-    
-    // 初始化事件总线行为管理
-    console.log('🚀 初始化事件总线行为管理...')
-    initializeActions()
-    console.log('✅ 事件总线行为管理初始化完成')
     
     isLoading.value = false
     console.log('🎉 编辑器初始化完成！')

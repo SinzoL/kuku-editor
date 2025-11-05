@@ -49,7 +49,9 @@ const geometryTypes = [
 
 // 通过事件总线创建几何体
 const handleCreateGeometry = (type: string) => {
+  console.log('🎯 GeometryPanel: 用户点击创建几何体按钮，类型:', type)
   emit(EditorEvents.CREATE_GEOMETRY, { type })
+  console.log('📤 GeometryPanel: 已发送 CREATE_GEOMETRY 事件')
 }
 
 // 方法

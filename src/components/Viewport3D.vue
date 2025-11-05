@@ -28,8 +28,11 @@ const handleCanvasClick = (event: MouseEvent) => {
 }
 
 const handleCanvasReady = (canvas: HTMLCanvasElement) => {
-  console.log('📺 Canvas 元素准备就绪，发送事件...')
+  console.log('📺 Viewport3D: Canvas 元素准备就绪，发送事件...')
+  console.log('📺 Viewport3D: Canvas 对象:', canvas)
+  console.log('📺 Viewport3D: 发送 CANVAS_READY 事件')
   emit(EditorEvents.CANVAS_READY, { canvas })
+  console.log('📺 Viewport3D: CANVAS_READY 事件已发送')
 }
 
 // 响应式数据
@@ -37,8 +40,13 @@ const canvasRef = ref<HTMLCanvasElement>()
 
 // 生命周期
 onMounted(() => {
+  console.log('📺 Viewport3D: onMounted 被调用')
+  console.log('📺 Viewport3D: canvasRef.value =', canvasRef.value)
   if (canvasRef.value) {
+    console.log('📺 Viewport3D: Canvas 元素存在，调用 handleCanvasReady')
     handleCanvasReady(canvasRef.value)
+  } else {
+    console.error('❌ Viewport3D: Canvas 元素不存在！')
   }
 })
 </script>

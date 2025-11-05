@@ -16,6 +16,7 @@ export function useEditorActions() {
     eventListeners.set(event, callback)
     on(event, callback)
   }
+  
   const { 
     addGeometry: engineAddGeometry,
     selectObject: engineSelectObject,
@@ -47,13 +48,19 @@ export function useEditorActions() {
 
   // 几何体操作
   const handleGeometryActions = () => {
+    console.log('🔧 useEditorActions: 设置几何体事件监听器')
     // 创建几何体
     registerEventListener(EditorEvents.CREATE_GEOMETRY, (data: { type: string, params?: any }) => {
+      console.log('📥 useEditorActions: 收到 CREATE_GEOMETRY 事件，数据:', data)
       const object = engineAddGeometry(data.type)
+      console.log('🏗️ useEditorActions: engineAddGeometry 返回结果:', object)
       if (object) {
         selectedObject.value = object
         updateEditorState()
         emit(EditorEvents.OBJECT_CREATED, { object, type: data.type })
+        console.log('✅ useEditorActions: 几何体创建成功，已发送 OBJECT_CREATED 事件')
+      } else {
+        console.error('❌ useEditorActions: 几何体创建失败')
       }
     })
 
