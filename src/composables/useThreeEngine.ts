@@ -12,6 +12,13 @@ import {
   ScaleObjectCommand
 } from './useHistoryManager'
 
+// 扩展Window接口
+declare global {
+  interface Window {
+    engineEventHandlers?: Map<string, EventListener>
+  }
+}
+
 // 单例实例存储
 let engineInstance: any = null
 
@@ -23,6 +30,7 @@ export function useThreeEngine() {
 
   // 添加实例标识符用于调试
   const instanceId = Math.random().toString(36).substr(2, 9)
+  console.log(`🔧 useThreeEngine: 创建新实例 ${instanceId}`)
   
   // Three.js 核心对象
   const scene = ref<THREE.Scene>()
@@ -240,24 +248,39 @@ export function useThreeEngine() {
       // 添加网格地面
       addGrid()
       
-      // 处理窗口大小变化
-      window.addEventListener('resize', onWindowResize)
-      
-      // 监听性能配置更新
-      window.addEventListener('update-performance-config', (event: any) => {
+      // 存储事件监听器引用以便清理
+      const resizeHandler = onWindowResize
+      const configHandler = (event: any) => {
         const config = event.detail
         Object.assign(performanceConfig.value, config)
-      })
+      }
+      const cleanupHandler = () => {
+        cleanupUnusedResources()
+      }
+      const compressHandler = () => {
+        compressAllTextures()
+      }
+      
+      // 处理窗口大小变化
+      window.addEventListener('resize', resizeHandler)
+      
+      // 监听性能配置更新
+      window.addEventListener('update-performance-config', configHandler)
 
       // 监听资源清理事件
-      window.addEventListener('cleanup-resources', () => {
-        cleanupUnusedResources()
-      })
+      window.addEventListener('cleanup-resources', cleanupHandler)
 
       // 监听纹理压缩事件
-      window.addEventListener('compress-textures', () => {
-        compressAllTextures()
-      })
+      window.addEventListener('compress-textures', compressHandler)
+      
+      // 存储事件监听器引用到引擎实例中
+      if (!window.engineEventHandlers) {
+        window.engineEventHandlers = new Map()
+      }
+      window.engineEventHandlers.set('resize', resizeHandler)
+      window.engineEventHandlers.set('update-performance-config', configHandler)
+      window.engineEventHandlers.set('cleanup-resources', cleanupHandler)
+      window.engineEventHandlers.set('compress-textures', compressHandler)
       
       // 开始渲染循环
       animate()
@@ -1139,6 +1162,73 @@ export function useThreeEngine() {
     }
   }
 
+  // 清理函数
+  const cleanup = () => {
+    console.log(`🧹 useThreeEngine: 清理实例 ${instanceId}`)
+    
+    // 清理事件监听器
+    if (window.engineEventHandlers) {
+      const handlers = window.engineEventHandlers
+      if (handlers.has('resize')) {
+        const handler = handlers.get('resize')
+        if (handler) {
+          window.removeEventListener('resize', handler)
+        }
+      }
+      if (handlers.has('update-performance-config')) {
+        const handler = handlers.get('update-performance-config')
+        if (handler) {
+          window.removeEventListener('update-performance-config', handler)
+        }
+      }
+      if (handlers.has('cleanup-resources')) {
+        const handler = handlers.get('cleanup-resources')
+        if (handler) {
+          window.removeEventListener('cleanup-resources', handler)
+        }
+      }
+      if (handlers.has('compress-textures')) {
+        const handler = handlers.get('compress-textures')
+        if (handler) {
+          window.removeEventListener('compress-textures', handler)
+        }
+      }
+      handlers.clear()
+    }
+    
+    // 清理Three.js资源
+    if (renderer.value) {
+      renderer.value.dispose()
+      renderer.value.forceContextLoss()
+    }
+    
+    if (scene.value) {
+      // 递归清理场景中的所有对象
+      scene.value.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          if (child.geometry) child.geometry.dispose()
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(material => material.dispose())
+            } else {
+              child.material.dispose()
+            }
+          }
+        }
+      })
+      scene.value.clear()
+    }
+    
+    // 重置状态
+    objects.value.length = 0
+    selectedObject.value = null
+    
+    // 清理单例引用
+    engineInstance = null
+    
+    console.log(`✅ useThreeEngine: 实例 ${instanceId} 清理完成`)
+  }
+
   const engineAPI = {
     // 添加实例ID用于调试
     instanceId,
@@ -1163,6 +1253,7 @@ export function useThreeEngine() {
     setTransformMode,
     deleteSelectedObject,
     deselectObject,
+    cleanup,
     
     // 资源导入
     importModel,

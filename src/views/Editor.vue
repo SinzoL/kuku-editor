@@ -26,9 +26,6 @@
         <!-- 几何体创建 -->
         <GeometryPanel />
 
-        <!-- 几何体参数配置 -->
-        <GeometryConfigPanel />
-
         <!-- 变换模式控制 -->
         <TransformModePanel 
           :transform-mode="transformMode"
@@ -109,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, onUnmounted, nextTick } from 'vue'
 import * as THREE from 'three'
 import { useWasmStore } from '@/stores/wasm'
 import { useThreeEngine } from '@/composables/useThreeEngine'
@@ -121,7 +118,6 @@ import { ScaleObjectCommand } from '@/composables/useHistoryManager'
 // 导入组件
 import EditorHeader from '@/components/EditorHeader.vue'
 import GeometryPanel from '@/components/sidebar/left/GeometryPanel.vue'
-import GeometryConfigPanel from '@/components/sidebar/left/GeometryConfigPanel.vue'
 import TransformModePanel from '@/components/sidebar/left/TransformModePanel.vue'
 import HistoryPanel from '@/components/sidebar/left/HistoryPanel.vue'
 import ObjectProperties from '@/components/sidebar/right/ObjectProperties.vue'
@@ -189,6 +185,7 @@ const {
   deleteSelectedObject: engineDeleteSelectedObject,
   deselectObject: engineDeselectObject,
   selectedObject,
+  cleanup: engineCleanup,
   // 资源导入
   importModel,
   importTexture,
@@ -407,30 +404,90 @@ const currentStats = ref({
 const fpsHistory: number[] = []
 const maxFpsHistory = 10
 
+// 定时器引用，用于清理
+let statsUpdateTimer: number | null = null
+// 组件是否已卸载的标志
+let isComponentUnmounted = false
+
 const updateStats = () => {
-  const stats = getStats()
-  
-  // FPS 平滑处理
-  fpsHistory.push(stats.fps)
-  if (fpsHistory.length > maxFpsHistory) {
-    fpsHistory.shift()
+  // 检查组件是否已卸载
+  if (isComponentUnmounted || statsUpdateTimer === null) {
+    return
   }
   
-  // 计算平均 FPS
-  const avgFps = fpsHistory.reduce((sum, fps) => sum + fps, 0) / fpsHistory.length
-  fps.value = Math.round(avgFps)
-  
-  // 更新详细统计信息
-  currentStats.value = {
-    fps: Math.round(avgFps),
-    objectCount: stats.objectCount,
-    renderTime: stats.renderTime || 0,
-    triangleCount: stats.triangleCount || 0,
-    drawCalls: stats.drawCalls || 0,
-    memoryUsage: stats.memoryUsage || 0
-  }
-  
-  objectCount.value = stats.objectCount
+  // 使用 nextTick 确保在 Vue 更新周期中安全执行
+  nextTick(() => {
+    // 再次检查，防止在 nextTick 期间组件被销毁
+    if (isComponentUnmounted || statsUpdateTimer === null) {
+      return
+    }
+    
+    try {
+      const stats = getStats()
+      
+      // 检查 stats 是否存在
+      if (!stats) {
+        return
+      }
+      
+      // 最后一次检查组件状态
+      if (isComponentUnmounted) {
+        return
+      }
+      
+      // FPS 平滑处理
+      const currentFps = stats.fps || 0
+      fpsHistory.push(currentFps)
+      if (fpsHistory.length > maxFpsHistory) {
+        fpsHistory.shift()
+      }
+      
+      // 计算平均 FPS
+      const avgFps = fpsHistory.length > 0 
+        ? fpsHistory.reduce((sum, fps) => sum + fps, 0) / fpsHistory.length 
+        : 0
+      
+      // 安全地更新响应式数据
+      try {
+        if (!isComponentUnmounted && fps && fps.value !== null && fps.value !== undefined) {
+          fps.value = Math.round(avgFps)
+        }
+      } catch (e) {
+        console.warn('更新 fps 失败:', e)
+      }
+      
+      // 安全地更新详细统计信息
+      try {
+        if (!isComponentUnmounted && currentStats && currentStats.value !== null && currentStats.value !== undefined) {
+          currentStats.value = {
+            fps: Math.round(avgFps),
+            objectCount: stats.objectCount || 0,
+            renderTime: stats.renderTime || 0,
+            triangleCount: stats.triangleCount || 0,
+            drawCalls: stats.drawCalls || 0,
+            memoryUsage: stats.memoryUsage || 0
+          }
+        }
+      } catch (e) {
+        console.warn('更新 currentStats 失败:', e)
+      }
+      
+      try {
+        if (!isComponentUnmounted && objectCount && objectCount.value !== null && objectCount.value !== undefined) {
+          objectCount.value = stats.objectCount || 0
+        }
+      } catch (e) {
+        console.warn('更新 objectCount 失败:', e)
+      }
+    } catch (error) {
+      console.warn('更新统计信息时出错:', error)
+      // 如果出现任何错误，停止定时器
+      if (statsUpdateTimer !== null) {
+        clearInterval(statsUpdateTimer)
+        statsUpdateTimer = null
+      }
+    }
+  })
 }
 
 // 更新性能配置（通过事件总线）
@@ -490,8 +547,8 @@ const initializeEngine = async (canvas: HTMLCanvasElement) => {
     isLoading.value = false
     console.log('🎉 编辑器初始化完成！')
     
-    // 定期更新统计 - 降低更新频率
-    setInterval(updateStats, 500)
+    // 定期更新统计 - 降低更新频率，并保存定时器引用
+    statsUpdateTimer = window.setInterval(updateStats, 500)
     
     // 监听拖拽结束事件和实时变换更新
     window.addEventListener('transform-drag-end', handleDragEnd)
@@ -513,16 +570,53 @@ onMounted(() => {
   console.log('🚀 Editor 组件已挂载')
 })
 
+// 在组件卸载前进行预清理
+onBeforeUnmount(() => {
+  console.log('🧹 Editor: 开始预清理...')
+  
+  // 立即标记组件为已卸载状态
+  isComponentUnmounted = true
+  
+  // 立即清理统计更新定时器
+  if (statsUpdateTimer !== null) {
+    clearInterval(statsUpdateTimer)
+    statsUpdateTimer = null
+    console.log('✅ Editor: 统计定时器已清理')
+  }
+})
+
 // 清理事件监听器
 onUnmounted(() => {
+  console.log('🧹 Editor: 开始最终清理资源...')
+  
+  // 确保组件标记为已卸载
+  isComponentUnmounted = true
+  
+  // 再次确保定时器被清理
+  if (statsUpdateTimer !== null) {
+    clearInterval(statsUpdateTimer)
+    statsUpdateTimer = null
+  }
+  
   // 清理事件总线监听器
   cleanup()
+  
+  // 清理Three.js引擎资源
+  if (engineCleanup) {
+    engineCleanup()
+  }
   
   // 清理DOM事件监听器
   window.removeEventListener('transform-drag-end', handleDragEnd)
   window.removeEventListener('transform-change', handleTransformUpdate)
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('mouseup', handleSliderMouseUp)
+  console.log('✅ Editor: DOM事件监听器已清理')
+  
+  // 清理自定义事件监听器
+  window.removeEventListener('object-properties-update', () => {})
+  
+  console.log('🎉 Editor: 资源清理完成')
 })
 </script>
 
